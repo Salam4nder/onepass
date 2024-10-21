@@ -1,35 +1,43 @@
-
-use std::io;
+use std::io::{self, Write, Result};
+use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 enum Command {
-    None,
     New,
     Get,
     Suggest
 }
 
+fn write(s: &mut StandardStream, msg: &str) -> io::Result<()> {
+        writeln!(s, "{}", msg)
+}
+
+const PARSE_MSG:   &str = "expecting 2 arguments: {{command}} {{target}}";
+const COMMAND_MSG: &str = "expecting {{command}} as first argument: new, get, suggest";
+
 impl Command {
-    fn new(s: &str) -> Command {
+    fn from_string(s: &str) -> Option<Command> {
         match s {
-            "new"     => return Command::New,
-            "get"     => return Command::Get,
-            "suggest" => return Command::Suggest,
-            _         => return Command::None,
+            "new"     => return Some(Command::New),
+            "get"     => return Some(Command::Get),
+            "suggest" => return Some(Command::Suggest),
+            _         => return None,
         }
     }
     fn execute(&self, t: &str) {
         match self {
+            Command::New     => println!("new command, {t}"),
             Command::Get     => println!("get command, {t}"),
-            Command::None    => println!("no command"),
             Command::Suggest => println!("suggest command"),
-            _                => println!("default"),
         }
     }
 }
 
-fn main() -> (){
+fn main() {
+    let mut stdout = StandardStream::stdout(ColorChoice::Always);
+    stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green))).unwrap_or_default();
+
     let mut input= String::new();
-    let (mut command, mut target) = (String::new(), String::new());
+    let (mut cmd_str, mut target_str) = (String::new(), String::new());
     let std_in = io::stdin();
 
     match std_in.read_line(&mut input) {
@@ -39,16 +47,24 @@ fn main() -> (){
         
     let mut split = input.split_whitespace();
     if split.clone().count() != 2 {
-        panic!("expecting {{command}} {{target}}");
+        let _ = write(&mut stdout, PARSE_MSG);
+        std::process::exit(2);
     }
     if let Some(cmd) = split.next() {
-        command = cmd.to_string();
+        cmd_str = cmd.to_string();
     }
     if let Some(trgt) = split.next() {
-        target = trgt.to_string();
+        target_str = trgt.to_string();
     }
 
-    let cmd = Command::new(command.as_str());
-    cmd.execute(target.as_str());
-    println!("got {command}, {target}")
+    let command :Command;
+    match Command::from_string(cmd_str.as_str()) {
+        Some(c) => command = c,
+        None => {
+            let _ = write(&mut stdout, COMMAND_MSG);
+            std::process::exit(2);
+        }
+
+    }
+    command.execute(target_str.as_str());
 }
