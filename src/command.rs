@@ -1,23 +1,26 @@
-pub enum Command {
+pub enum Kind {
     New,
     Get,
+    Init,
     Suggest
 }
 
-impl Command {
-    pub fn from_string(s: &str) -> Option<Command> {
+impl Kind {
+    pub fn from_string(s: &str) -> Option<Kind> {
         match s {
-            "new"     => return Some(Command::New),
-            "get"     => return Some(Command::Get),
-            "suggest" => return Some(Command::Suggest),
+            "new"     => return Some(Kind::New),
+            "get"     => return Some(Kind::Get),
+            "init"    => return Some(Kind::Init),
+            "suggest" => return Some(Kind::Suggest),
             _         => return None,
         }
     }
     pub fn execute(&self, t: &str) {
         match self {
-            Command::New     => println!("new command, {t}"),
-            Command::Get     => println!("get command, {t}"),
-            Command::Suggest => println!("suggest command"),
+            Kind::New     => println!("new command, {t}"),
+            Kind::Get     => println!("get command, {t}"),
+            Kind::Init    => println!("init command, {t}"),
+            Kind::Suggest => println!("suggest command"),
         }
     }
 }
