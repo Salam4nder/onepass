@@ -1,5 +1,6 @@
 mod file;
 mod command;
+mod encrypt;
 
 use std::env;
 use std::io::{self, Write, Read};
@@ -42,6 +43,21 @@ fn main() {
                 let _ = write(&mut stdout, err.as_str());
                 std::process::exit(2);
             });
+
+            let mut root_file = match file::create() {
+                Ok(file) => file,
+                Err(err) => {
+                    let _ = write(&mut stdout, &err.to_string());
+                    std::process::exit(2);
+                }
+            };
+            let mut file_content = String::from(master_password);
+            file_content.push_str("\n");
+            file_content.push_str(file::DELIMITER);
+            if let Err(err) = root_file.write_all(file_content.as_bytes()) {
+                let _ = write(&mut stdout, &err.to_string());
+                std::process::exit(2);
+            }
         },
         Kind::New => (),
         Kind::Get => (),
@@ -54,7 +70,7 @@ fn ask_for_master_password(i: &mut io::Stdin, o: &mut StandardStream) -> Result<
     let _ = write(o, "please input your master password: \n");
 
     let mut input = String::new();
-    match i.read_to_string(&mut input) {
+    match i.read_line(&mut input) {
         Ok(_) => (),
         Err(err) => {
             return Err(format!("err: {}", err));
