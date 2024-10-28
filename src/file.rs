@@ -8,10 +8,7 @@ const DEFAULT_DIR_NAME:      &str = ".onepass";
 const DEFAULT_FILE_NAME:     &str = "main.txt";
 
 pub fn file_path() -> PathBuf {
-    let home_dir = match env::var("HOME") {
-        Ok(dir) => dir,
-        Err(err) => panic!("{}", err),
-    };
+    let home_dir = env::var("HOME").unwrap();
     let mut path = PathBuf::from(home_dir);
     path.push(DEFAULT_DIR_NAME);
     path.push(DEFAULT_FILE_NAME);
@@ -21,9 +18,23 @@ pub fn file_path() -> PathBuf {
 pub fn create() -> io::Result<std::fs::File> {
     let path = file_path();
 
+    if let Some(parent_dir) = path.parent() {
+        std::fs::create_dir_all(parent_dir)?;
+    }
+
     let file = OpenOptions::new()
-        .create(true)
         .write(true)
+        .create(true)
+        .open(&path)?;
+
+    Ok(file)
+}
+
+pub fn open() -> io::Result<std::fs::File> {
+    let path = file_path();
+
+    let file = OpenOptions::new()
+        .read(true)
         .open(&path)?;
 
     Ok(file)
