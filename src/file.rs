@@ -23,6 +23,7 @@ pub fn create() -> io::Result<std::fs::File> {
 
     let file = OpenOptions::new()
         .create(true)
+        .write(true)
         .open(&path)?;
 
     Ok(file)
