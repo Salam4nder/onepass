@@ -3,6 +3,8 @@ mod command;
 mod encrypt;
 
 use std::env;
+use std::fs;
+use std::io::Read;
 use std::io::{self, Write};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use command::Kind;
@@ -63,7 +65,6 @@ fn main() {
                 std::process::exit(2);
             };
 
-
             let mut content = String::from("\n");
             content.push_str(file::DELIMITER);
 
@@ -81,7 +82,48 @@ fn main() {
             }
         },
         Kind::New => (),
-        Kind::Get => (),
+        Kind::Get => {
+            if !file::exists() {
+                let _ = write(&mut stdout, "please run onepass init to setup!");
+                std::process::exit(0);
+            }
+            let master_password = ask_for_master_password(&mut stdin, &mut stdout).unwrap_or_else(|err| {
+                let _ = write(&mut stdout, err.as_str());
+                std::process::exit(2);
+            });
+            let mut f = match fs::File::open(file::file_path()) {
+                Ok(v) => v,
+                Err(err) => {
+                    let _ = write(&mut stdout, &err.to_string());
+                    std::process::exit(2);
+                },
+            };
+
+             // Create a 12-byte buffer for the nonce
+            let mut nonce_buf = [0u8; 12];
+            // Read exactly 12 bytes into the buffer
+            if let Err(err) = f.read_exact(&mut nonce_buf) {
+                let _ = write(&mut stdout, &err.to_string());
+                std::process::exit(2);
+            };
+            let nonce = chacha20poly1305::Nonce::from_slice(&nonce_buf);
+
+            let mut buf = Vec::new();
+            if let Err(err) = f.read_to_end(&mut buf) {
+                let _ = write(&mut stdout, &err.to_string());
+                std::process::exit(2);
+            }
+
+            let decrypted_content = match encrypt::decrypt(&master_password, buf, *nonce) {
+                Ok(v) => v,
+                Err(err) => {
+                    let _ = write(&mut stdout, &err.to_string());
+                    std::process::exit(2);
+                },
+            };
+            println!("after decrypt: {}", &decrypted_content); 
+
+        },
         Kind::Suggest => (),
     }
 
