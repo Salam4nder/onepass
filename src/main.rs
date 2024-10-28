@@ -3,9 +3,13 @@ mod command;
 mod encrypt;
 
 use std::env;
-use std::io::{self, Write, Read};
+use std::io::{self, Write};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
-use crate::command::Kind;
+use command::Kind;
+use chacha20poly1305::{
+    aead::{AeadCore, OsRng},
+    ChaCha20Poly1305
+};
 
 fn write(s: &mut StandardStream, msg: &str) -> io::Result<()> {
         writeln!(s, "{}", msg)
@@ -51,10 +55,27 @@ fn main() {
                     std::process::exit(2);
                 }
             };
-            let mut file_content = String::from(master_password);
-            file_content.push_str("\n");
-            file_content.push_str(file::DELIMITER);
-            if let Err(err) = root_file.write_all(file_content.as_bytes()) {
+
+            let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
+
+            if let Err(err) = root_file.write_all(&nonce.to_vec()) {
+                let _ = write(&mut stdout, &err.to_string());
+                std::process::exit(2);
+            };
+
+
+            let mut content = String::from("\n");
+            content.push_str(file::DELIMITER);
+
+            let encrypted_content = match encrypt::encrypt(&master_password, &content, nonce) {
+                Ok(v) => v,
+                Err(err) => {
+                    let _ = write(&mut stdout, &err.to_string());
+                    std::process::exit(2);
+                },
+            };
+
+            if let Err(err) = root_file.write_all(&encrypted_content) {
                 let _ = write(&mut stdout, &err.to_string());
                 std::process::exit(2);
             }
