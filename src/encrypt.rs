@@ -4,33 +4,20 @@ use chacha20poly1305::{
 };
 use hmac_sha256;
 
-struct EncryptedContent {
-    content: Vec<u8>,
-    nonce:  chacha20poly1305::Nonce,
-}
-
-impl EncryptedContent {
-    fn new(content: Vec<u8>, nonce: chacha20poly1305::Nonce) -> EncryptedContent {
-        EncryptedContent { content , nonce }
-    }
-}
-
-pub fn encrypt(key: &str, content: &str) -> Result<EncryptedContent, String>{
+pub fn encrypt(key: &str, content: &str, nonce: chacha20poly1305::Nonce) -> Result<Vec<u8>, String>{
     let h = hmac_sha256::Hash::hash(key.as_bytes());
 
     let cipher = match ChaCha20Poly1305::new_from_slice(&h) {
         Ok(c) => c,
         Err(err) => {
-            println!("got fucked, {}", err.to_string());
             return Err(err.to_string());
         }
     };
-    let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
     let ciphertext = match cipher.encrypt(&nonce, content.as_ref()) {
         Ok(v) => v,
         Err(err) => return Err(err.to_string()),
     };
-    Ok(EncryptedContent::new(ciphertext, nonce))
+    Ok(ciphertext)
 }
 
 pub fn decrypt(key: &str, content: Vec<u8>, nonce: chacha20poly1305::Nonce) -> Result<String, String> {
@@ -39,7 +26,6 @@ pub fn decrypt(key: &str, content: Vec<u8>, nonce: chacha20poly1305::Nonce) -> R
     let cipher = match ChaCha20Poly1305::new_from_slice(&h) {
         Ok(c) => c,
         Err(err) => {
-            println!("got fucked, {}", err.to_string());
             return Err(err.to_string());
         }
     };
@@ -59,15 +45,15 @@ mod tests {
 
     #[test]
     fn encrypt_decrypt() {
-        let content = "lmao, epic!";
+        let content = "content\ndelimiter\nsecret-stuff";
         let key = "masterPassword";
+        let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
 
-        let encrypted_content = encrypt(key, content).expect("encrypting");
-        println!("{}", encrypted_content);
+        let encrypted_content = encrypt(key, content, nonce).expect("encrypting");
         let decrypted_content = decrypt(
             key,
-            encrypted_content.content,
-            encrypted_content.nonce,
+            encrypted_content,
+            nonce,
         ).expect("decrypting");
 
         assert_eq!(content, decrypted_content);
