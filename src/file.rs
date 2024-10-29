@@ -40,6 +40,17 @@ pub fn open() -> io::Result<std::fs::File> {
     Ok(file)
 }
 
+pub fn open_append() -> io::Result<std::fs::File> {
+    let path = file_path();
+
+    let file = OpenOptions::new()
+        .read(true)
+        .append(true)
+        .open(&path)?;
+
+    Ok(file)
+}
+
 pub fn exists() -> bool {
     let path = file_path();
 
