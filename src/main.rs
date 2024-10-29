@@ -1,6 +1,7 @@
 mod file;
 mod command;
 mod encrypt;
+mod resource;
 
 use std::env;
 use std::fs;
@@ -90,7 +91,13 @@ fn main() {
                 std::process::exit(1);
             }
         },
-        Kind::New => (),
+        Kind::New => {
+            let res = ask_for_resource(&mut stdin, &mut stdout).unwrap_or_else(|err| {
+                let _ = write(&mut stdout, err.as_str());
+                std::process::exit(1);
+            });
+            println!("{}", res.to_string());
+        },
         Kind::Get => {
             if args.len() < 3 {
                 let _ = write(&mut stdout, GET_MSG);
@@ -149,11 +156,11 @@ fn main() {
                         pw = next_next.to_string();
                         println!("{}", user);
                         println!("{}", pw);
+                        break;
                     } else {
                         let _ = write(&mut stdout, "uncomplete resource is less than 3 lines");
                         std::process::exit(1);
                     }
-                    break;
                 }
             }
         },
@@ -180,4 +187,29 @@ fn ask_for_master_password(i: &mut io::Stdin, o: &mut StandardStream) -> Result<
         return Err("password can not contain spaces".to_string());
     };
     Ok(input)
+}
+
+fn ask_for_resource(i: &mut io::Stdin, o: &mut StandardStream) -> Result<resource::Instance, String> {
+    let mut fn_ask_for = |m: &str| -> Result<String, String> {
+        let _ = write(o, m);
+        let mut s = String::new();
+        match i.read_line(&mut s) {
+            Ok(_) => (),
+            Err(err) => {
+                return Err(format!("reading {}: {}", m, err));
+            },
+        };
+        if is_reserved(&s) {
+            return Err("use of reserved keyword".to_string());
+        };
+        Ok(s)
+    };
+    let name = fn_ask_for("resource: ")?;
+    let user     = fn_ask_for("user: ")?;
+    let password = fn_ask_for("password: ")?;
+    Ok(resource::Instance{
+        name,
+        user,
+        password,
+    })
 }
