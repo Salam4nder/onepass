@@ -2,7 +2,8 @@ pub enum Kind {
     New,
     Get,
     Init,
-    Suggest
+    Purge,
+    Suggest,
 }
 
 impl Kind {
@@ -11,16 +12,9 @@ impl Kind {
             "new"     => return Some(Kind::New),
             "get"     => return Some(Kind::Get),
             "init"    => return Some(Kind::Init),
+            "purge"   => return Some(Kind::Purge),
             "suggest" => return Some(Kind::Suggest),
             _         => return None,
-        }
-    }
-    pub fn execute(&self, t: &str) {
-        match self {
-            Kind::New     => println!("new command, {t}"),
-            Kind::Get     => println!("get command, {t}"),
-            Kind::Init    => println!("init command, {t}"),
-            Kind::Suggest => println!("suggest command"),
         }
     }
 }
