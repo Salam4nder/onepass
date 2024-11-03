@@ -5,7 +5,7 @@ mod resource;
 
 use std::env;
 use std::fs;
-use std::io::Read;
+use std::path::PathBuf;
 use std::io::{self, Write};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use command::Kind;
@@ -22,11 +22,10 @@ fn write(s: &mut StandardStream, msg: &str) -> io::Result<()> {
         writeln!(s, "{}", msg)
 }
 
-const RESERVED_NONCE:    &str = "resource";
-const RESERVED_RESOURCE: &str = "nonce";
+const RESERVED_NONCE:    &str = "nonce";
+const RESERVED_RESOURCE: &str = "resource";
 
 const GET_MSG:     &str = "expecting resource: e.g - onepass get soundcloud";
-const PARSE_MSG:   &str = "expecting argument: {{command}}";
 const COMMAND_MSG: &str = "expecting {{command}} as first argument: init, new, get, suggest. example: onepass init";
 
 fn main() {
@@ -36,7 +35,7 @@ fn main() {
 
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
-        let _ = write(&mut stdout, PARSE_MSG);
+        let _ = write(&mut stdout, COMMAND_MSG);
         std::process::exit(0);
     }
     let command_string = &args[1];
@@ -77,6 +76,7 @@ fn main() {
 
             let mut content = String::from("\n");
             content.push_str(file::DELIMITER);
+            content.push_str("\n");
 
             let encrypted_content = match encrypt::encrypt(&master_password, &content, nonce) {
                 Ok(v) => v,
@@ -92,11 +92,24 @@ fn main() {
             }
         },
         Kind::New => {
-            let res = ask_for_resource(&mut stdin, &mut stdout).unwrap_or_else(|err| {
-                let _ = write(&mut stdout, err.as_str());
-                std::process::exit(1);
-            });
-            println!("{}", res.to_string());
+            let pw = ask_for_master_password(&mut stdin, &mut stdout).expect("asking for master password");
+            // TODO(kg): don't open file multiple times?
+            let mut open_file = file::open().expect("open");
+            let data = file::extract_data(&mut open_file).expect("extracting data");
+            let mut decrypted_content = encrypt::decrypt(&pw, data.buf, data.nonce).expect("decrypting");
+
+            let mut truncated_file = file::open_truncate().expect("open truncate");
+            let new_nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
+            truncated_file.write_all(&new_nonce.to_vec()).expect("writing all");
+
+            let res = ask_for_resource(&mut stdin, &mut stdout).expect("asking for resource");
+
+            decrypted_content.push_str(&res.to_string());
+            let encrypted_content = encrypt::encrypt(&pw, &decrypted_content, new_nonce).expect("encrypting");
+
+            let mut f = file::open_append().expect("open append");
+            f.write_all(&encrypted_content).expect("write all");
+
         },
         Kind::Get => {
             if args.len() < 3 {
@@ -125,46 +138,47 @@ fn main() {
                 },
             };
 
-            // Create a 12-byte buffer for the nonce.
-            let mut nonce_buf = [0u8; 12];
-            // Read exactly 12 bytes into the buffer.
-            if let Err(err) = f.read_exact(&mut nonce_buf) {
-                let _ = write(&mut stdout, &err.to_string());
-                std::process::exit(1);
-            };
-            let nonce = chacha20poly1305::Nonce::from_slice(&nonce_buf);
-
-            let mut buf = Vec::new();
-            if let Err(err) = f.read_to_end(&mut buf) {
-                let _ = write(&mut stdout, &err.to_string());
-                std::process::exit(1);
-            }
-
-            let decrypted_content = match encrypt::decrypt(&master_password, buf, *nonce) {
+            let data = match file::extract_data(&mut f) {
                 Ok(v) => v,
-                Err(err) => {
-                    let _ = write(&mut stdout, &err.to_string());
+                Err(_) => {
+                    let _ = write(&mut stdout, "extracting data");
+                    std::process::exit(1);
+                }
+            };
+
+            let decrypted_content = match encrypt::decrypt(&master_password, data.buf, data.nonce) {
+                Ok(v) => v,
+                Err(_) => {
+                    let _ = write(&mut stdout, "decrypting");
                     std::process::exit(1);
                 },
             };
             let (user, pw): (String, String);
             let lines: Vec<&str> = decrypted_content.lines().collect();
             for (i, line) in lines.iter().enumerate() {
-                if *line == resource_str {
-                    if let (Some(next), Some(next_next)) = (lines.get(i + 1), lines.get(i + 2)) {
+                if *line == RESERVED_RESOURCE && lines[i+1] == resource_str {
+                    if let (Some(next), Some(next_next)) = (lines.get(i + 2), lines.get(i + 3)) {
                         user = next.to_string();
                         pw = next_next.to_string();
                         println!("{}", user);
                         println!("{}", pw);
-                        break;
+                        return;
                     } else {
                         let _ = write(&mut stdout, "uncomplete resource is less than 3 lines");
                         std::process::exit(1);
                     }
                 }
             }
+            let _ = write(&mut stdout, "resource not found");
+            std::process::exit(0);
         },
         Kind::Suggest => (),
+        Kind::Purge => {
+            if let Err(err) = fs::remove_dir_all(file::dir_path()) {
+                let _ = write(&mut stdout, &err.to_string());
+                std::process::exit(0);
+            };
+        },
     }
 
 }
