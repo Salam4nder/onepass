@@ -5,7 +5,15 @@ mod resource;
 
 use std::env;
 use std::fs;
-use std::path::PathBuf;
+use std::io::stdout;
+
+extern crate clipboard;
+extern crate rpassword;
+
+// use termion::input::TermRead;
+use clipboard::ClipboardProvider;
+use clipboard::ClipboardContext;
+
 use std::io::{self, Write};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use command::Kind;
@@ -54,7 +62,7 @@ fn main() {
                 let _ = write(&mut stdout, "you are all setup! run `onepass help`");
                 std::process::exit(1);
             }
-            let master_password = ask_for_master_password(&mut stdin, &mut stdout).unwrap_or_else(|err| {
+            let master_password = ask_for_master_password().unwrap_or_else(|err| {
                 let _ = write(&mut stdout, err.as_str());
                 std::process::exit(1);
             });
@@ -92,7 +100,7 @@ fn main() {
             }
         },
         Kind::New => {
-            let pw = ask_for_master_password(&mut stdin, &mut stdout).expect("asking for master password");
+            let pw = ask_for_master_password().expect("asking for master password");
             // TODO(kg): don't open file multiple times?
             let mut open_file = file::open().expect("open");
             let data = file::extract_data(&mut open_file).expect("extracting data");
@@ -126,7 +134,7 @@ fn main() {
                 let _ = write(&mut stdout, "please run onepass init to setup!");
                 std::process::exit(1);
             }
-            let master_password = ask_for_master_password(&mut stdin, &mut stdout).unwrap_or_else(|err| {
+            let master_password = ask_for_master_password().unwrap_or_else(|err| {
                 let _ = write(&mut stdout, err.as_str());
                 std::process::exit(1);
             });
@@ -153,6 +161,8 @@ fn main() {
                     std::process::exit(1);
                 },
             };
+
+            let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
             let (user, pw): (String, String);
             let lines: Vec<&str> = decrypted_content.lines().collect();
             for (i, line) in lines.iter().enumerate() {
@@ -160,9 +170,12 @@ fn main() {
                     if let (Some(next), Some(next_next)) = (lines.get(i + 2), lines.get(i + 3)) {
                         user = next.to_string();
                         pw = next_next.to_string();
+                        ctx.set_contents(pw.to_owned()).expect("setting clip");
                         println!("{}", user);
                         println!("{}", pw);
-                        return;
+                        let _ = write(&mut stdout, &format!("found resource {}", user).to_string());
+                        let _ = write(&mut stdout, "password copied to clipboard");
+                        std::process::exit(0);
                     } else {
                         let _ = write(&mut stdout, "uncomplete resource is less than 3 lines");
                         std::process::exit(1);
@@ -173,6 +186,26 @@ fn main() {
             std::process::exit(0);
         },
         Kind::Suggest => (),
+        Kind::List => {
+            if !file::exists() {
+                let _ = write(&mut stdout, "please run onepass init to setup!");
+                std::process::exit(1);
+            }
+            let pw = ask_for_master_password().expect("asking for pw");
+            let mut f = file::open().expect("opening");
+            let data = file::extract_data(&mut f).expect("extracting");
+            let decrypted_content = encrypt::decrypt(&pw, data.buf, data.nonce).expect("decrypting");
+            let lines: Vec<&str> = decrypted_content.lines().collect();
+            let mut result: Vec<String> = vec![];
+            for (i, line) in decrypted_content.lines().into_iter().enumerate(){
+                if line == RESERVED_RESOURCE {
+                    result.push(String::from(lines[i+1]))
+                }
+            }
+            for v in result {
+                write(&mut stdout, &v).expect("writing");
+            }
+        },
         Kind::Purge => {
             if let Err(err) = fs::remove_dir_all(file::dir_path()) {
                 let _ = write(&mut stdout, &err.to_string());
@@ -183,16 +216,8 @@ fn main() {
 
 }
 
-fn ask_for_master_password(i: &mut io::Stdin, o: &mut StandardStream) -> Result<String, String> {
-    let _ = write(o, "please input your master password: \n");
-
-    let mut input = String::new();
-    match i.read_line(&mut input) {
-        Ok(_) => (),
-        Err(err) => {
-            return Err(format!("err: {}", err));
-        },
-    };
+fn ask_for_master_password() -> Result<String, String> {
+    let input = rpassword::prompt_password("please input your master password: ").expect("reading");
 
     if input.trim().is_empty() {
         return Err("password can not be empty".to_string());
@@ -206,19 +231,14 @@ fn ask_for_master_password(i: &mut io::Stdin, o: &mut StandardStream) -> Result<
 fn ask_for_resource(i: &mut io::Stdin, o: &mut StandardStream) -> Result<resource::Instance, String> {
     let mut fn_ask_for = |m: &str| -> Result<String, String> {
         let _ = write(o, m);
-        let mut s = String::new();
-        match i.read_line(&mut s) {
-            Ok(_) => (),
-            Err(err) => {
-                return Err(format!("reading {}: {}", m, err));
-            },
-        };
-        if is_reserved(&s) {
+        let mut input = String::new();
+        i.read_line(&mut input).expect("reading");
+        if is_reserved(&input) {
             return Err("use of reserved keyword".to_string());
         };
-        Ok(s)
+        Ok(input)
     };
-    let name = fn_ask_for("resource: ")?;
+    let name     = fn_ask_for("resource: ")?;
     let user     = fn_ask_for("user: ")?;
     let password = fn_ask_for("password: ")?;
     Ok(resource::Instance{
