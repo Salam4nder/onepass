@@ -165,7 +165,7 @@ fn main() {
                 let _ = write(&mut stdout, err.as_str());
                 std::process::exit(1);
             });
-            let mut f = match fs::File::open(file::file_path()) {
+            let mut f = match fs::File::open(file::path()) {
                 Ok(v) => v,
                 Err(err) => {
                     let _ = write(&mut stdout, &err.to_string());

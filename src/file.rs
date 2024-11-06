@@ -11,7 +11,7 @@ pub const DELIMITER:         &str = "--||--";
 const DEFAULT_DIR_NAME:      &str = ".onepass";
 const DEFAULT_FILE_NAME:     &str = "main.txt";
 
-pub fn file_path() -> PathBuf {
+pub fn path() -> PathBuf {
     let home_dir = env::var("HOME").unwrap();
     let mut path = PathBuf::from(home_dir);
     path.push(DEFAULT_DIR_NAME);
@@ -27,7 +27,7 @@ pub fn dir_path() -> PathBuf {
 }
 
 pub fn create() -> io::Result<std::fs::File> {
-    let path = file_path();
+    let path = path();
 
     if let Some(parent_dir) = path.parent() {
         std::fs::create_dir_all(parent_dir)?;
@@ -42,7 +42,7 @@ pub fn create() -> io::Result<std::fs::File> {
 }
 
 pub fn open() -> io::Result<std::fs::File> {
-    let path = file_path();
+    let path = path();
 
     let file = OpenOptions::new()
         .read(true)
@@ -52,7 +52,7 @@ pub fn open() -> io::Result<std::fs::File> {
 }
 
 pub fn open_append() -> io::Result<std::fs::File> {
-    let path = file_path();
+    let path = path();
 
     let file = OpenOptions::new()
         .read(true)
@@ -63,7 +63,7 @@ pub fn open_append() -> io::Result<std::fs::File> {
 }
 
 pub fn open_write() -> io::Result<std::fs::File> {
-    let path = file_path();
+    let path = path();
 
     let file = OpenOptions::new()
         .read(true)
@@ -74,7 +74,7 @@ pub fn open_write() -> io::Result<std::fs::File> {
 }
 
 pub fn open_truncate() -> io::Result<std::fs::File> {
-    let path = file_path();
+    let path = path();
 
     let file = OpenOptions::new()
         .read(true)
@@ -86,7 +86,7 @@ pub fn open_truncate() -> io::Result<std::fs::File> {
 }
 
 pub fn exists() -> bool {
-    let path = file_path();
+    let path = path();
 
     if let Err(err) = OpenOptions::new().read(true).open(&path) {
         if err.kind() == io::ErrorKind::NotFound {
