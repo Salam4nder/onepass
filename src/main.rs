@@ -5,7 +5,7 @@ mod resource;
 
 use std::env;
 use std::fs;
-use std::io::stdout;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 extern crate clipboard;
 extern crate rpassword;
@@ -14,6 +14,7 @@ extern crate rpassword;
 use clipboard::ClipboardProvider;
 use clipboard::ClipboardContext;
 
+use ctrlc;
 use std::io::{self, Write};
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use command::Kind;
@@ -36,7 +37,23 @@ const RESERVED_RESOURCE: &str = "resource";
 const GET_MSG:     &str = "expecting resource: e.g - onepass get soundcloud";
 const COMMAND_MSG: &str = "expecting {{command}} as first argument: init, new, get, suggest. example: onepass init";
 
+static DONE: AtomicBool = AtomicBool::new(false);
+
+fn clean_up_and_exit(err :io::Error) {
+}
+
 fn main() {
+    ctrlc::set_handler(move || {
+        let max_retries = 5;
+        for _ in 0..max_retries {
+            if DONE.load(Ordering::Relaxed) {
+                println!("onepass: cleaning up...");
+                std::process::exit(1);
+            }
+            std::thread::sleep(std::time::Duration::from_secs(1));
+        }
+    }).expect("setting ctrl-c handler");
+
     let mut stdin = io::stdin();
     let mut stdout = StandardStream::stdout(ColorChoice::Always);
     stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green))).unwrap_or_default();
@@ -74,6 +91,8 @@ fn main() {
                     std::process::exit(1);
                 }
             };
+            println!("sleeping for 5 secs");
+            std::thread::sleep(std::time::Duration::from_secs(5));
 
             let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
 
@@ -98,10 +117,13 @@ fn main() {
                 let _ = write(&mut stdout, &err.to_string());
                 std::process::exit(1);
             }
+            DONE.store(true, Ordering::Relaxed);
         },
         Kind::New => {
-            let pw = ask_for_master_password().expect("asking for master password");
             // TODO(kg): don't open file multiple times?
+            let pw = ask_for_master_password().expect("asking for master password");
+            let res = ask_for_resource(&mut stdin, &mut stdout).expect("asking for resource");
+
             let mut open_file = file::open().expect("open");
             let data = file::extract_data(&mut open_file).expect("extracting data");
             let mut decrypted_content = encrypt::decrypt(&pw, data.buf, data.nonce).expect("decrypting");
@@ -110,14 +132,12 @@ fn main() {
             let new_nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
             truncated_file.write_all(&new_nonce.to_vec()).expect("writing all");
 
-            let res = ask_for_resource(&mut stdin, &mut stdout).expect("asking for resource");
-
             decrypted_content.push_str(&res.to_string());
             let encrypted_content = encrypt::encrypt(&pw, &decrypted_content, new_nonce).expect("encrypting");
 
             let mut f = file::open_append().expect("open append");
             f.write_all(&encrypted_content).expect("write all");
-
+            DONE.store(true, Ordering::Relaxed);
         },
         Kind::Get => {
             if args.len() < 3 {
