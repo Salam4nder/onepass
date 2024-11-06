@@ -37,14 +37,15 @@ const RESERVED_RESOURCE: &str = "resource";
 const GET_MSG:     &str = "expecting resource: e.g - onepass get soundcloud";
 const COMMAND_MSG: &str = "expecting {{command}} as first argument: init, new, get, suggest. example: onepass init";
 
-static DONE: AtomicBool = AtomicBool::new(false);
-
-// fn clean_up_and_exit(err :io::Error) {
-// }
+static DONE:       AtomicBool = AtomicBool::new(false);
+static INPUT_MODE: AtomicBool = AtomicBool::new(false);
 
 fn main() {
     ctrlc::set_handler(move || {
         println!("onepass: cleaning up...");
+        if INPUT_MODE.load(Ordering::Relaxed) {
+            std::process::exit(1);
+        };
         let max_retries = 5;
         for _ in 0..max_retries {
             if DONE.load(Ordering::Relaxed) {
@@ -52,6 +53,8 @@ fn main() {
             }
             std::thread::sleep(std::time::Duration::from_secs(1));
         }
+        // TODO(kg): should not happen, revisit this.
+        println!("onepass: WARNING: bad state, run `onepass purge`")
     }).expect("setting ctrl-c handler");
 
     let mut stdin = io::stdin();
@@ -241,7 +244,9 @@ fn main() {
 }
 
 fn ask_for_master_password() -> Result<String, String> {
+    INPUT_MODE.store(true, Ordering::Relaxed);
     let input = rpassword::prompt_password("please input your master password: ").expect("reading");
+    INPUT_MODE.store(false, Ordering::Relaxed);
 
     if input.trim().is_empty() {
         return Err("password can not be empty".to_string());
@@ -253,6 +258,7 @@ fn ask_for_master_password() -> Result<String, String> {
 }
 
 fn ask_for_resource(i: &mut io::Stdin, o: &mut StandardStream) -> Result<resource::Instance, String> {
+    INPUT_MODE.store(true, Ordering::Relaxed);
     let mut fn_ask_for = |m: &str| -> Result<String, String> {
         let _ = write(o, m);
         let mut input = String::new();
@@ -265,6 +271,7 @@ fn ask_for_resource(i: &mut io::Stdin, o: &mut StandardStream) -> Result<resourc
     let name     = fn_ask_for("resource: ")?;
     let user     = fn_ask_for("user: ")?;
     let password = fn_ask_for("password: ")?;
+    INPUT_MODE.store(false, Ordering::Relaxed);
     Ok(resource::Instance{
         name,
         user,
