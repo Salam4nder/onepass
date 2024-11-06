@@ -1,6 +1,5 @@
 mod file;
 mod command;
-mod encrypt;
 mod resource;
 
 use std::env;
@@ -108,7 +107,7 @@ fn main() {
             content.push_str(file::DELIMITER);
             content.push_str("\n");
 
-            let encrypted_content = match encrypt::encrypt(&master_password, &content, nonce) {
+            let encrypted_content = match file::encrypt(&master_password, &content, nonce) {
                 Ok(v) => v,
                 Err(err) => {
                     let _ = write(&mut stdout, &err.to_string());
@@ -133,14 +132,14 @@ fn main() {
 
             let mut open_file = file::open().expect("open");
             let data = file::extract_data(&mut open_file).expect("extracting data");
-            let mut decrypted_content = encrypt::decrypt(&pw, data.buf, data.nonce).expect("decrypting");
+            let mut decrypted_content = file::decrypt(&pw, data.buf, data.nonce).expect("decrypting");
 
             let mut truncated_file = file::open_truncate().expect("open truncate");
             let new_nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
             truncated_file.write_all(&new_nonce.to_vec()).expect("writing all");
 
             decrypted_content.push_str(&res.to_string());
-            let encrypted_content = encrypt::encrypt(&pw, &decrypted_content, new_nonce).expect("encrypting");
+            let encrypted_content = file::encrypt(&pw, &decrypted_content, new_nonce).expect("encrypting");
 
             let mut f = file::open_append().expect("open append");
             f.write_all(&encrypted_content).expect("write all");
@@ -181,7 +180,7 @@ fn main() {
                 }
             };
 
-            let decrypted_content = match encrypt::decrypt(&master_password, data.buf, data.nonce) {
+            let decrypted_content = match file::decrypt(&master_password, data.buf, data.nonce) {
                 Ok(v) => v,
                 Err(_) => {
                     let _ = write(&mut stdout, "decrypting");
@@ -221,7 +220,7 @@ fn main() {
             let pw = ask_for_master_password().expect("asking for pw");
             let mut f = file::open().expect("opening");
             let data = file::extract_data(&mut f).expect("extracting");
-            let decrypted_content = encrypt::decrypt(&pw, data.buf, data.nonce).expect("decrypting");
+            let decrypted_content = file::decrypt(&pw, data.buf, data.nonce).expect("decrypting");
             let lines: Vec<&str> = decrypted_content.lines().collect();
             let mut result: Vec<String> = vec![];
             for (i, line) in decrypted_content.lines().into_iter().enumerate(){
