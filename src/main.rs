@@ -39,15 +39,15 @@ const COMMAND_MSG: &str = "expecting {{command}} as first argument: init, new, g
 
 static DONE: AtomicBool = AtomicBool::new(false);
 
-fn clean_up_and_exit(err :io::Error) {
-}
+// fn clean_up_and_exit(err :io::Error) {
+// }
 
 fn main() {
     ctrlc::set_handler(move || {
+        println!("onepass: cleaning up...");
         let max_retries = 5;
         for _ in 0..max_retries {
             if DONE.load(Ordering::Relaxed) {
-                println!("onepass: cleaning up...");
                 std::process::exit(1);
             }
             std::thread::sleep(std::time::Duration::from_secs(1));
@@ -120,6 +120,10 @@ fn main() {
             DONE.store(true, Ordering::Relaxed);
         },
         Kind::New => {
+            if !file::exists() {
+                let _ = write(&mut stdout, "you are not setup! run onepass init");
+                std::process::exit(1);
+            }
             // TODO(kg): don't open file multiple times?
             let pw = ask_for_master_password().expect("asking for master password");
             let res = ask_for_resource(&mut stdin, &mut stdout).expect("asking for resource");
