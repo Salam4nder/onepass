@@ -1,13 +1,14 @@
 use crate::file;
 use crate::input;
 use std::io::Write;
+use rand::rngs::OsRng;
 use std::io::Stdin;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use clipboard::ClipboardProvider;
 use clipboard::ClipboardContext;
 use chacha20poly1305::{
-    aead::{AeadCore, OsRng},
+    aead::AeadCore,
     ChaCha20Poly1305
 };
 
