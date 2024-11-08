@@ -2,6 +2,7 @@ mod file;
 mod input;
 mod command;
 mod resource;
+mod password;
 
 use std::env;
 use std::sync::atomic::Ordering;
