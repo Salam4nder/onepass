@@ -1,6 +1,8 @@
+use crate::resource;
+use crate::password;
+
 use std::sync::atomic::{Ordering, AtomicBool};
 use std::io::Stdin;
-use crate::resource;
 
 pub const RESERVED_NONCE:    &str = "nonce";
 pub const RESERVED_RESOURCE: &str = "resource";
@@ -9,7 +11,10 @@ pub static MODE: AtomicBool = AtomicBool::new(false);
 
 pub fn master_password() -> Result<String, String> {
     MODE.store(true, Ordering::Relaxed);
-    let input = rpassword::prompt_password("please input your master password: ").expect("reading");
+    let input = match rpassword::prompt_password("please input your master password: ") {
+        Ok(v) => v,
+        Err(err) => return Err(err.to_string())
+    };
     MODE.store(false, Ordering::Relaxed);
 
     if input.trim().is_empty() {
@@ -26,15 +31,26 @@ pub fn resource(i: &mut Stdin) -> Result<resource::Instance, String> {
     let fn_ask_for = |m: &str| -> Result<String, String> {
         println!("{}: ", m);
         let mut input = String::new();
-        i.read_line(&mut input).expect("reading");
+        if let Err(err) = i.read_line(&mut input) { 
+            return Err(err.to_string())
+        }
         if is_reserved(&input) {
             return Err("use of reserved keyword".to_string());
         };
         Ok(input)
     };
-    let name     = fn_ask_for("resource: ")?;
-    let user     = fn_ask_for("user: ")?;
-    let password = fn_ask_for("password: ")?;
+    let password: String;
+    let name = fn_ask_for("resource")?;
+    let user = fn_ask_for("user")?;
+    let yes_no = fn_ask_for("generated a strong password, do you want to use it? (y/n)")?;
+    if yes_no == "y\n" {
+        password = password::suggest(14);
+    } else {
+        password = match rpassword::prompt_password("choose a password: ") {
+            Ok(v) => v,
+            Err(err) => return Err(err.to_string())
+        };
+    }
     MODE.store(false, Ordering::Relaxed);
     Ok(resource::Instance{
         name,
