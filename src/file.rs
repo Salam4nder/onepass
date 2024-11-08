@@ -6,7 +6,7 @@ use std::io::{self, Read};
 use hmac_sha256;
 use chacha20poly1305::{
     aead::{Aead, KeyInit},
-    ChaCha20Poly1305, Nonce
+    ChaCha20Poly1305, Nonce,
 };
 
 pub const DELIMITER:         &str = "--||--";
@@ -156,6 +156,8 @@ pub fn decrypt(key: &str, content: Vec<u8>, nonce: chacha20poly1305::Nonce) -> R
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chacha20poly1305::AeadCore;
+    use rand::rngs::OsRng;
 
     #[test]
     fn encrypt_decrypt() {
