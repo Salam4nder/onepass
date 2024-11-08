@@ -5,7 +5,7 @@ const LOWERCASE:     &[u8; 26] = b"abcdefghijklmnopqrstuvwxyz";
 const NUMBERS:       &[u8; 10] = b"0123456789";
 const SPECIAL_CHARS: &[u8; 26] = b"!@#$%^&*()-_=+[]{}|;:,.<>?";
 
-fn suggest(length: usize) -> String {
+pub fn suggest(length: usize) -> String {
     let mut rng = rand::thread_rng();
 
     // Make sure we include at least one of each character type
