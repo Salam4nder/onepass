@@ -1,13 +1,11 @@
 use std::fs::OpenOptions;
 use std::path::PathBuf;
 use std::env;
-use chacha20poly1305;
 use std::fs::File;
 use std::io::{self, Read};
-use chacha20poly1305::Nonce;
 use hmac_sha256;
 use chacha20poly1305::{
-    aead::{Aead, AeadCore, KeyInit, OsRng},
+    aead::{Aead, KeyInit},
     ChaCha20Poly1305, Nonce
 };
 
