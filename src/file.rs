@@ -65,17 +65,6 @@ pub fn open_append() -> io::Result<std::fs::File> {
     Ok(file)
 }
 
-pub fn open_write() -> io::Result<std::fs::File> {
-    let path = path();
-
-    let file = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .open(&path)?;
-
-    Ok(file)
-}
-
 pub fn open_truncate() -> io::Result<std::fs::File> {
     let path = path();
 
