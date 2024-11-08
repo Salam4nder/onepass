@@ -1,10 +1,10 @@
 use crate::file;
 use crate::input;
 use std::io::Write;
-use rand::rngs::OsRng;
 use std::io::Stdin;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use rand::rngs::OsRng;
 use clipboard::ClipboardProvider;
 use clipboard::ClipboardContext;
 use chacha20poly1305::{
@@ -94,6 +94,7 @@ pub fn new(stdin: &mut Stdin) -> Result<(), String> {
     if let Err(err) = truncated_file.write_all(&new_nonce.to_vec()) {
         return Err(err.to_string())
     };
+    decrypted_content.push_str("\n");
     decrypted_content.push_str(&res.to_string());
     let encrypted_content = file::encrypt(&pw, &decrypted_content, new_nonce)?;
     let mut f = match file::open_append() {
@@ -143,13 +144,12 @@ pub fn get(args: Vec<String>) -> Result<(), String> {
             if let (Some(next), Some(next_next)) = (lines.get(i + 2), lines.get(i + 3)) {
                 user = next.to_string();
                 pw = next_next.to_string();
-                println!("{}", user);
                 if let Err(err) = ctx.set_contents(pw.to_owned()) {
                     println!("could not copy password to clipboard: {}", err);
-                    println!("printing password, make sure to clear your terminal...");
+                    println!("printing password, make sure to copy it and clear your terminal...");
                     println!("{}", pw);
                 };
-                println!("{}", format!("found resource {}", user));
+                println!("username: {}", user);
                 println!("password copied to clipboard");
                 return Ok(());
             } else {
