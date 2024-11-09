@@ -64,7 +64,9 @@ fn main() {
                println!("{}", &err);
             };
         },
-        Kind::Suggest => (),
+        Kind::Suggest => {
+            println!("{}", command::suggest());
+        },
         Kind::List => {
             if let Err(err) = command::list() {
                println!("{}", &err);

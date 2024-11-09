@@ -1,5 +1,6 @@
 use crate::file;
 use crate::input;
+use crate::password;
 use std::io::Write;
 use std::io::Stdin;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -193,4 +194,8 @@ pub fn purge() -> Result<(), String> {
         return Err(err.to_string());
     };
     Ok(())
+}
+
+pub fn suggest() -> String {
+    password::suggest(14)
 }
