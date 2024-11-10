@@ -86,6 +86,11 @@ pub fn new(stdin: &mut Stdin) -> Result<(), String> {
         Err(err) => return Err(err.to_string()) 
     };
     let mut decrypted_content = file::decrypt(&pw, data.buf, data.nonce)?;
+    for line in decrypted_content.lines() {
+        if line.trim() == res.name.trim() {
+            return Err("resource already exists".to_string())
+        }
+    }
 
     let mut truncated_file = match file::open_truncate() {
         Ok(v) => v,
@@ -182,6 +187,9 @@ pub fn list() -> Result<(), String> {
         if line == input::RESERVED_RESOURCE {
             result.push(String::from(lines[i+1]))
         }
+    }
+    if result.len() < 1 {
+        println!("no resource found");
     }
     for v in result {
         println!("{}", v);
