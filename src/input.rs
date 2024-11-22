@@ -59,6 +59,35 @@ pub fn resource(i: &mut Stdin) -> Result<resource::Instance, String> {
     })
 }
 
+// Returns a tuple of (Key, Value) of a resource to update.
+// E.g (resource::NAME, new_name).
+pub fn update_resource(i: &mut Stdin) -> Result<(String, String), String> {
+    MODE.store(true, Ordering::Relaxed);
+    println!("update name (n), user (u) or password (p)?");
+    let mut input = String::new();
+    if let Err(err) = i.read_line(&mut input) { 
+        return Err(err.to_string())
+    }
+    let key = match input.as_str() {
+        "n\n" => resource::NAME,
+        "u\n" => resource::USER,
+        "p\n" => resource::PASSWORD,
+        _     => { 
+                    println!("unsupported command, aborting...");
+                    return Err("cancelled by user".to_string())
+                 },
+    };
+    println!("{}", &key);
+
+    let value = match rpassword::prompt_password("new value: ") {
+        Ok(v) => v,
+        Err(err) => return Err(err.to_string())
+    };
+
+    MODE.store(false, Ordering::Relaxed);
+    Ok((String::from(key), value))
+}
+
 pub fn is_reserved(input: &str) -> bool {
     input == RESERVED_NONCE || input == RESERVED_RESOURCE
 }
