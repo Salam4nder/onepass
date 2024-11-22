@@ -1,6 +1,7 @@
 use crate::file;
 use crate::input;
 use crate::password;
+use crate::resource;
 use std::io::Write;
 use std::io::Stdin;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -25,6 +26,7 @@ pub enum Kind {
     Init,
     List,
     Purge,
+    Update,
     Suggest,
 }
 
@@ -36,6 +38,7 @@ impl Kind {
             "init"    => return Some(Kind::Init),
             "list"    => return Some(Kind::List),
             "purge"   => return Some(Kind::Purge),
+            "update"  => return Some(Kind::Update),
             "suggest" => return Some(Kind::Suggest),
             _         => return None,
         }
@@ -126,16 +129,15 @@ pub fn get(args: Vec<String>) -> Result<(), String> {
         return Err("use of reserved keyword".to_string());
     }
     let master_password = input::master_password()?;
+
     let mut f = match std::fs::File::open(file::path()) {
         Ok(v) => v,
         Err(err) => return Err(err.to_string())
     };
-
     let data = match file::extract_data(&mut f) {
         Ok(v) => v,
         Err(err) => return Err(err.to_string())
     };
-
     let decrypted_content = file::decrypt(
         &master_password,
         data.buf,
@@ -164,6 +166,7 @@ pub fn get(args: Vec<String>) -> Result<(), String> {
         }
     }
     println!("resource not found");
+    DONE.store(true, Ordering::Relaxed);
     Ok(())
 }
 
@@ -194,6 +197,7 @@ pub fn list() -> Result<(), String> {
     for v in result {
         println!("{}", v);
     }
+    DONE.store(true, Ordering::Relaxed);
     Ok(())
 }
 
@@ -201,9 +205,86 @@ pub fn purge() -> Result<(), String> {
     if let Err(err) = std::fs::remove_dir_all(file::dir_path()) {
         return Err(err.to_string());
     };
+    DONE.store(true, Ordering::Relaxed);
     Ok(())
 }
 
 pub fn suggest() -> String {
+    DONE.store(true, Ordering::Relaxed);
     password::suggest(14)
+}
+
+pub fn update(stdin: &mut Stdin, args: Vec<String>) -> Result<(), String> {
+    if !file::exists() {
+        return Err(MSG_NOT_SETUP.to_string());
+    }
+    if args.len() < 3 {
+        return Err(MSG_GET.to_string());
+    }
+    let resource_str = &args[2];
+    if input::is_reserved(resource_str) {
+        return Err("use of reserved keyword".to_string());
+    }
+    let master_password = input::master_password()?;
+    let (key, value) = input::update_resource(stdin)?;
+
+    let mut f = match std::fs::File::open(file::path()) {
+        Ok(v) => v,
+        Err(err) => return Err(err.to_string())
+    };
+
+    let data = match file::extract_data(&mut f) {
+        Ok(v) => v,
+        Err(err) => return Err(err.to_string())
+    };
+    let decrypted_content = file::decrypt(
+        &master_password,
+        data.buf,
+        data.nonce,
+    )?;
+    let lines: Vec<&str> = decrypted_content.lines().collect();
+    let mut idx: usize = 0;
+    for (i, _) in lines.iter().enumerate() {
+        if lines[i] == input::RESERVED_RESOURCE && lines[i+1] == resource_str {
+            match key.as_str() {
+                resource::NAME     => {idx = i+1},
+                resource::USER     => {idx = i+2},
+                resource::PASSWORD => {idx = i+3},
+                _                  => { return Err("bad resource key".to_string()) },
+            }
+            break;
+        }
+    }
+    if idx == 0 {
+        return Err("resource not found".to_string())
+    }
+    let mut data = vec![];
+    let mut c: u8 = 0;
+    for line in lines {
+        if line == "\n" {
+            continue
+        }
+        let v: String;
+        if usize::from(c) == idx {
+            v = String::from(value.clone());
+        } else {
+            v = String::from(line);
+        }
+        data.push(v);
+        c = c + 1;
+    }
+    let new_nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
+    let encrypted_content = file::encrypt(&master_password, &data.join("\n"), new_nonce)?;
+    let mut truncated_file = match file::open_truncate() {
+        Ok(v) => v,
+        Err(err) => return Err(err.to_string()) 
+    };
+    if let Err(err) = truncated_file.write_all(&new_nonce.to_vec()) {
+        return Err(err.to_string())
+    };
+    if let Err(err) = truncated_file.write_all(&encrypted_content) {
+        return Err(err.to_string())
+    };
+    DONE.store(true, Ordering::Relaxed);
+    Ok(())
 }
