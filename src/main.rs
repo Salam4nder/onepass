@@ -77,5 +77,10 @@ fn main() {
                println!("{}", &err);
             };
        },
+        Kind::Update => {
+            if let Err(err) = command::update(&mut stdin, args) {
+               println!("{}", &err);
+            };
+       },
     }
 }
