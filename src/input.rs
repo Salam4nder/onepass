@@ -77,7 +77,6 @@ pub fn update_resource(i: &mut Stdin) -> Result<(String, String), String> {
                     return Err("cancelled by user".to_string())
                  },
     };
-    println!("{}", &key);
 
     let value = match rpassword::prompt_password("new value: ") {
         Ok(v) => v,
