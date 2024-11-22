@@ -1,3 +1,7 @@
+pub const NAME:     &str = "RESOURCE_NAME";
+pub const USER:     &str = "RESOURCE_USER";
+pub const PASSWORD: &str = "RESOURCE_PASSWORD";
+
 pub struct Instance {
     pub name: String,
     pub user: String,
