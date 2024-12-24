@@ -1,3 +1,4 @@
+use crate::text;
 use crate::file;
 use crate::input;
 use crate::password;
@@ -16,13 +17,10 @@ use chacha20poly1305::{
 
 pub static DONE: AtomicBool = AtomicBool::new(false);
 
-const MSG_SETUP:     &str = "you are all setup! run `onepass help`";
-const MSG_NOT_SETUP: &str = "you are not setup! run `onepass init`";
-const MSG_GET:       &str = "expecting resource: e.g - onepass get soundcloud";
-
 pub enum Kind {
     New,
     Get,
+    Del,
     Init,
     List,
     Purge,
@@ -35,6 +33,7 @@ impl Kind {
         match s {
             "new"     => return Some(Kind::New),
             "get"     => return Some(Kind::Get),
+            "del"     => return Some(Kind::Del),
             "init"    => return Some(Kind::Init),
             "list"    => return Some(Kind::List),
             "purge"   => return Some(Kind::Purge),
@@ -47,7 +46,7 @@ impl Kind {
 
 pub fn init() -> Result<(), String> {
     if file::exists() {
-        return Err(MSG_SETUP.to_string())
+        return Err(text::MSG_SETUP.to_string())
     }
 
     let master_password = input::master_password()?;
@@ -75,7 +74,7 @@ pub fn init() -> Result<(), String> {
 
 pub fn new(stdin: &mut Stdin) -> Result<(), String> {
     if !file::exists() {
-        return Err(MSG_NOT_SETUP.to_string())
+        return Err(text::MSG_NOT_SETUP.to_string())
     }
     // TODO(kg): don't open file multiple times?
     let pw = input::master_password()?;
@@ -119,10 +118,10 @@ pub fn new(stdin: &mut Stdin) -> Result<(), String> {
 
 pub fn get(args: Vec<String>) -> Result<(), String> {
     if !file::exists() {
-        return Err(MSG_NOT_SETUP.to_string());
+        return Err(text::MSG_NOT_SETUP.to_string());
     }
     if args.len() < 3 {
-        return Err(MSG_GET.to_string());
+        return Err(text::MSG_GET.to_string());
     }
     let resource_str = &args[2];
     if input::is_reserved(resource_str) {
@@ -172,7 +171,7 @@ pub fn get(args: Vec<String>) -> Result<(), String> {
 
 pub fn list() -> Result<(), String> {
     if !file::exists() {
-        return Err(MSG_NOT_SETUP.to_string());
+        return Err(text::MSG_NOT_SETUP.to_string());
     }
     let pw = input::master_password()?;
     let mut f = match file::open() {
@@ -216,17 +215,17 @@ pub fn suggest() -> String {
 
 pub fn update(stdin: &mut Stdin, args: Vec<String>) -> Result<(), String> {
     if !file::exists() {
-        return Err(MSG_NOT_SETUP.to_string());
+        return Err(text::MSG_NOT_SETUP.to_string());
     }
     if args.len() < 3 {
-        return Err(MSG_GET.to_string());
+        return Err(text::MSG_GET.to_string());
     }
     let resource_str = &args[2];
     if input::is_reserved(resource_str) {
         return Err("use of reserved keyword".to_string());
     }
     let master_password = input::master_password()?;
-    let (key, value) = input::update_resource(stdin)?;
+    let (key, new_value) = input::update_resource(stdin)?;
 
     let mut f = match std::fs::File::open(file::path()) {
         Ok(v) => v,
@@ -242,36 +241,30 @@ pub fn update(stdin: &mut Stdin, args: Vec<String>) -> Result<(), String> {
         data.buf,
         data.nonce,
     )?;
-    let lines: Vec<&str> = decrypted_content.lines().collect();
-    let mut idx: usize = 0;
-    for (i, _) in lines.iter().enumerate() {
-        if lines[i] == input::RESERVED_RESOURCE && lines[i+1] == resource_str {
-            match key.as_str() {
-                resource::NAME     => {idx = i+1},
-                resource::USER     => {idx = i+2},
-                resource::PASSWORD => {idx = i+3},
-                _                  => { return Err("bad resource key".to_string()) },
-            }
-            break;
-        }
-    }
-    if idx == 0 {
-        return Err("resource not found".to_string())
-    }
+
     let mut data = vec![];
-    let mut c: u8 = 0;
-    for line in lines {
-        if line == "\n" {
+    let mut target_idx: usize = 0;
+    let lines: Vec<&str> = decrypted_content.lines().collect();
+    for (i, l) in lines.iter().enumerate() {
+        if lines[i] == "\n" {
             continue
         }
-        let v: String;
-        if usize::from(c) == idx {
-            v = String::from(value.clone());
-        } else {
-            v = String::from(line);
+        if lines[i] == input::RESERVED_RESOURCE && lines[i+1] == resource_str {
+            match key.as_str() {
+                resource::NAME     => {target_idx = i+1},
+                resource::USER     => {target_idx = i+2},
+                resource::PASSWORD => {target_idx = i+3},
+                _                  => { return Err("bad resource key".to_string()) },
+            }
         }
-        data.push(v);
-        c = c + 1;
+        if target_idx != 0 && i == target_idx {
+            data.push(String::from(new_value.clone()));
+        } else {
+            data.push(String::from(*l));
+        }
+    }
+    if target_idx == 0 {
+        return Err("resource not found".to_string())
     }
     let new_nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
     let encrypted_content = file::encrypt(&master_password, &data.join("\n"), new_nonce)?;
@@ -286,5 +279,10 @@ pub fn update(stdin: &mut Stdin, args: Vec<String>) -> Result<(), String> {
         return Err(err.to_string())
     };
     DONE.store(true, Ordering::Relaxed);
+    Ok(())
+}
+
+pub fn del() -> Result<(), String> {
+    println!("hit del");
     Ok(())
 }
