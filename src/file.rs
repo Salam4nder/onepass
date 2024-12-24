@@ -2,35 +2,96 @@ use std::fs::OpenOptions;
 use std::path::PathBuf;
 use std::env;
 use std::fs::File;
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
+use chacha20poly1305::AeadCore;
 use hmac_sha256;
+use rand::rngs::OsRng;
 use chacha20poly1305::{
     aead::{Aead, KeyInit},
     ChaCha20Poly1305, Nonce,
 };
+
+use crate::resource;
 
 pub const DELIMITER:         &str = "--||--";
 
 const DEFAULT_DIR_NAME:      &str = ".onepass";
 const DEFAULT_FILE_NAME:     &str = "main.txt";
 
-pub fn path() -> PathBuf {
+/// TEST_DIR_NAME is used in tests.
+const TEST_DIR_NAME:      &str = ".onepass_test";
+/// TEST_FILE_NAME is used in tests.
+const TEST_FILE_NAME:      &str = ".main_test.txt";
+
+/// OpParams can be used to alter the default file path on basic
+/// file operations. Can be created with `OpParams::default() otherwise` 
+pub struct OpParams {
+    pub testing: bool,
+    pub custom_path: Option<String>
+}
+
+impl Default for OpParams {
+    fn default() -> OpParams {
+        OpParams { testing: false, custom_path: None }
+    }
+}
+
+// pub fn write(params: OpParams, pw: String, r: resource::Instance) {
+// }
+
+pub fn bootstrap(params: OpParams, pw: String) -> Result<(), String> {
+    let mut f = match create(params) {
+        Ok(v) => v,
+        Err(err) => return Err(err.to_string()) 
+    };
+
+    let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
+    if let Err(err) = f.write_all(&nonce.to_vec()) {
+        return Err(err.to_string())
+    };
+    let mut content = String::from("\n");
+    content.push_str(DELIMITER);
+    content.push_str("\n");
+
+    let encrypted_content = encrypt(&pw, &content, nonce)?;
+    if let Err(err) = f.write_all(&encrypted_content) {
+        return Err(err.to_string())
+    };
+    Ok(())
+}
+
+pub fn purge(params: OpParams) -> io::Result<()> {
+    std::fs::remove_dir_all(dir_path(params.testing)) 
+}
+
+pub fn file_path(test: bool) -> PathBuf {
     let home_dir = env::var("HOME").unwrap();
     let mut path = PathBuf::from(home_dir);
-    path.push(DEFAULT_DIR_NAME);
-    path.push(DEFAULT_FILE_NAME);
+    if test {
+        path.push(TEST_DIR_NAME);
+        path.push(TEST_FILE_NAME);
+    } else {
+        path.push(DEFAULT_DIR_NAME);
+        path.push(DEFAULT_FILE_NAME);
+    }
     path
 }
 
-pub fn dir_path() -> PathBuf {
+pub fn dir_path(test: bool) -> PathBuf {
     let home_dir = env::var("HOME").unwrap();
     let mut path = PathBuf::from(home_dir);
-    path.push(DEFAULT_DIR_NAME);
+    if test {
+        path.push(TEST_DIR_NAME);
+    } else {
+        path.push(DEFAULT_DIR_NAME);
+    }
     path
 }
 
-pub fn create() -> io::Result<std::fs::File> {
-    let path = path();
+/// Create the needed file to init the engine.
+/// The path can be adjusted with parameters.
+pub fn create(params: OpParams) -> io::Result<std::fs::File> {
+    let path = file_path(params.testing);
 
     if let Some(parent_dir) = path.parent() {
         std::fs::create_dir_all(parent_dir)?;
@@ -45,7 +106,7 @@ pub fn create() -> io::Result<std::fs::File> {
 }
 
 pub fn open() -> io::Result<std::fs::File> {
-    let path = path();
+    let path = file_path(/* test */ false);
 
     let file = OpenOptions::new()
         .read(true)
@@ -55,7 +116,7 @@ pub fn open() -> io::Result<std::fs::File> {
 }
 
 pub fn open_append() -> io::Result<std::fs::File> {
-    let path = path();
+    let path = file_path(/* test */ false);
 
     let file = OpenOptions::new()
         .read(true)
@@ -66,7 +127,7 @@ pub fn open_append() -> io::Result<std::fs::File> {
 }
 
 pub fn open_truncate() -> io::Result<std::fs::File> {
-    let path = path();
+    let path = file_path(/* test */ false);
 
     let file = OpenOptions::new()
         .read(true)
@@ -78,7 +139,7 @@ pub fn open_truncate() -> io::Result<std::fs::File> {
 }
 
 pub fn exists() -> bool {
-    let path = path();
+    let path = file_path(/* test */ false);
 
     if let Err(err) = OpenOptions::new().read(true).open(&path) {
         if err.kind() == io::ErrorKind::NotFound {
