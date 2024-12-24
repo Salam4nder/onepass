@@ -245,7 +245,7 @@ pub fn update(stdin: &mut Stdin, args: Vec<String>) -> Result<(), String> {
     let mut data = vec![];
     let mut target_idx: usize = 0;
     let lines: Vec<&str> = decrypted_content.lines().collect();
-    for (i, l) in lines.iter().enumerate() {
+    for (i, _) in lines.iter().enumerate() {
         if lines[i] == "\n" {
             continue
         }
@@ -260,7 +260,7 @@ pub fn update(stdin: &mut Stdin, args: Vec<String>) -> Result<(), String> {
         if target_idx != 0 && i == target_idx {
             data.push(String::from(new_value.clone()));
         } else {
-            data.push(String::from(*l));
+            data.push(String::from(lines[i]));
         }
     }
     if target_idx == 0 {
