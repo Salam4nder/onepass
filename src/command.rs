@@ -44,6 +44,8 @@ impl Kind {
     }
 }
 
+/// Initialize the onepass engine by creating the needed directory and file.
+/// It will create and cleanup a temporary file for testing purposes if [testing] is true.
 pub fn init() -> Result<(), String> {
     if file::exists() {
         return Err(text::MSG_SETUP.to_string())
@@ -51,23 +53,10 @@ pub fn init() -> Result<(), String> {
 
     let master_password = input::master_password()?;
 
-    let mut root_file = match file::create() {
-        Ok(v) => v,
-        Err(err) => return Err(err.to_string()) 
-    };
+    if let Err(err) = file::bootstrap(file::OpParams::default(), master_password) {
+        println!("{}", err);
+    }
 
-    let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
-    if let Err(err) = root_file.write_all(&nonce.to_vec()) {
-        return Err(err.to_string())
-    };
-    let mut content = String::from("\n");
-    content.push_str(file::DELIMITER);
-    content.push_str("\n");
-
-    let encrypted_content = file::encrypt(&master_password, &content, nonce)?;
-    if let Err(err) = root_file.write_all(&encrypted_content) {
-        return Err(err.to_string())
-    };
     DONE.store(true, Ordering::Relaxed);
     Ok(())
 }
@@ -129,7 +118,7 @@ pub fn get(args: Vec<String>) -> Result<(), String> {
     }
     let master_password = input::master_password()?;
 
-    let mut f = match std::fs::File::open(file::path()) {
+    let mut f = match file::open() {
         Ok(v) => v,
         Err(err) => return Err(err.to_string())
     };
@@ -201,7 +190,7 @@ pub fn list() -> Result<(), String> {
 }
 
 pub fn purge() -> Result<(), String> {
-    if let Err(err) = std::fs::remove_dir_all(file::dir_path()) {
+    if let Err(err) = file::purge(file::OpParams::default()) {
         return Err(err.to_string());
     };
     DONE.store(true, Ordering::Relaxed);
@@ -227,7 +216,7 @@ pub fn update(stdin: &mut Stdin, args: Vec<String>) -> Result<(), String> {
     let master_password = input::master_password()?;
     let (key, new_value) = input::update_resource(stdin)?;
 
-    let mut f = match std::fs::File::open(file::path()) {
+    let mut f = match file::open() {
         Ok(v) => v,
         Err(err) => return Err(err.to_string())
     };
@@ -295,7 +284,7 @@ pub fn del(args: Vec<String>) -> Result<(), String> {
     }
     let master_password = input::master_password()?;
 
-    let mut f = match std::fs::File::open(file::path()) {
+    let mut f = match file::open() {
         Ok(v) => v,
         Err(err) => return Err(err.to_string())
     };
@@ -349,4 +338,11 @@ pub fn del(args: Vec<String>) -> Result<(), String> {
     };
     DONE.store(true, Ordering::Relaxed);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    fn test(){}
 }
