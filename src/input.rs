@@ -78,13 +78,38 @@ pub fn update_resource(i: &mut Stdin) -> Result<(String, String), String> {
                  },
     };
 
-    let value = match rpassword::prompt_password("new value: ") {
-        Ok(v) => v,
-        Err(err) => return Err(err.to_string())
-    };
+    let val: String;
+    match key {
+        resource::NAME     => {
+            println!("new resource name: ");
+            let mut tmp = String::new();
+            if let Err(err) = i.read_line(&mut tmp) { 
+                return Err(err.to_string())
+            }
+            // TODO(kg): Check for existing resource.
+            val = tmp;
+        },
+        resource::USER     => {
+            println!("new resource user: ");
+            let mut tmp = String::new();
+            if let Err(err) = i.read_line(&mut tmp) { 
+                return Err(err.to_string())
+            }
+            val = tmp;
+        },
+        resource::PASSWORD => {
+            val = match rpassword::prompt_password("new password: ") {
+                Ok(v) => v,
+                Err(err) => return Err(err.to_string())
+            };
+        },
+        _                  => {
+            return Err("key malformed".to_string())
+        },
+    }
 
     MODE.store(false, Ordering::Relaxed);
-    Ok((String::from(key), value))
+    Ok((String::from(key), val))
 }
 
 pub fn is_reserved(input: &str) -> bool {
