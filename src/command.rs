@@ -185,13 +185,13 @@ pub fn list() -> Result<(), String> {
     let decrypted_content = file::decrypt(&pw, data.buf, data.nonce)?;
     let lines: Vec<&str> = decrypted_content.lines().collect();
     let mut result: Vec<String> = vec![];
-    for (i, line) in decrypted_content.lines().into_iter().enumerate(){
-        if line == input::RESERVED_RESOURCE {
+    for (i, _) in decrypted_content.lines().into_iter().enumerate(){
+        if lines[i] == input::RESERVED_RESOURCE {
             result.push(String::from(lines[i+1]))
         }
     }
     if result.len() < 1 {
-        println!("no resource found");
+        println!("no saved resources");
     }
     for v in result {
         println!("{}", v);
@@ -282,7 +282,71 @@ pub fn update(stdin: &mut Stdin, args: Vec<String>) -> Result<(), String> {
     Ok(())
 }
 
-pub fn del() -> Result<(), String> {
-    println!("hit del");
+pub fn del(args: Vec<String>) -> Result<(), String> {
+    if !file::exists() {
+        return Err(text::MSG_NOT_SETUP.to_string());
+    }
+    if args.len() < 3 {
+        return Err(text::MSG_GET.to_string());
+    }
+    let resource_str = &args[2];
+    if input::is_reserved(resource_str) {
+        return Err("use of reserved keyword".to_string());
+    }
+    let master_password = input::master_password()?;
+
+    let mut f = match std::fs::File::open(file::path()) {
+        Ok(v) => v,
+        Err(err) => return Err(err.to_string())
+    };
+    let data = match file::extract_data(&mut f) {
+        Ok(v) => v,
+        Err(err) => return Err(err.to_string())
+    };
+    let decrypted_content = file::decrypt(
+        &master_password,
+        data.buf,
+        data.nonce,
+    )?;
+
+    let mut data = vec![];
+    let mut found: bool = false;
+    let mut res_idx: usize = 0;
+    let mut user_idx: usize = 0;
+    let mut pass_idx: usize = 0;
+    let lines: Vec<&str> = decrypted_content.lines().collect();
+    for (i, _) in lines.iter().enumerate() {
+        if lines[i] == "\n" {
+            continue
+        }
+        if lines[i] == input::RESERVED_RESOURCE && lines[i+1] == resource_str {
+            found = true;
+            res_idx  = i+1;
+            user_idx = i+2;
+            pass_idx = i+3;
+            continue
+        }
+        if found && i == res_idx || i == user_idx || i == pass_idx {
+            continue
+        } else {
+            data.push(String::from(lines[i]));
+        }
+    }
+    if !found {
+        return Err("resource not found".to_string())
+    }
+    let new_nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
+    let encrypted_content = file::encrypt(&master_password, &data.join("\n"), new_nonce)?;
+    let mut truncated_file = match file::open_truncate() {
+        Ok(v) => v,
+        Err(err) => return Err(err.to_string()) 
+    };
+    if let Err(err) = truncated_file.write_all(&new_nonce.to_vec()) {
+        return Err(err.to_string())
+    };
+    if let Err(err) = truncated_file.write_all(&encrypted_content) {
+        return Err(err.to_string())
+    };
+    DONE.store(true, Ordering::Relaxed);
     Ok(())
 }

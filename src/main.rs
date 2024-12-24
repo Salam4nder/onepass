@@ -64,7 +64,7 @@ fn main() {
             };
         },
         Kind::Del => {
-            if let Err(err) = command::del() {
+            if let Err(err) = command::del(args) {
                println!("{}", &err);
             };
         },
