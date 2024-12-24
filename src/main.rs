@@ -1,4 +1,5 @@
 mod file;
+mod text;
 mod input;
 mod command;
 mod resource;
@@ -12,8 +13,6 @@ extern crate rpassword;
 
 use ctrlc;
 use command::Kind;
-
-const COMMAND_MSG: &str = "expecting {{command}} as first argument: init, new, get, suggest. example: onepass init";
 
 fn main() {
     ctrlc::set_handler(move || {
@@ -36,7 +35,7 @@ fn main() {
 
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
-        println!("{}", COMMAND_MSG);
+        println!("{}", text::COMMAND_MSG);
         std::process::exit(0);
     }
     let command_string = &args[1];
@@ -44,7 +43,7 @@ fn main() {
     let cmd = match command::Kind::from_string(command_string.as_str()) {
         Some(v) => v,
         None => {
-            println!("{}", COMMAND_MSG);
+            println!("{}", text::COMMAND_MSG);
             std::process::exit(1);
         },
     };
@@ -61,6 +60,11 @@ fn main() {
         },
         Kind::Get => {
             if let Err(err) = command::get(args) {
+               println!("{}", &err);
+            };
+        },
+        Kind::Del => {
+            if let Err(err) = command::del() {
                println!("{}", &err);
             };
         },
