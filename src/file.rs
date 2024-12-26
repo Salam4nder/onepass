@@ -10,7 +10,10 @@ use chacha20poly1305::{
     aead::{Aead, KeyInit},
     ChaCha20Poly1305, Nonce,
 };
+use clipboard::ClipboardProvider;
+use clipboard::ClipboardContext;
 
+use crate::input;
 use crate::resource;
 
 pub const DELIMITER:         &str = "--||--";
@@ -19,7 +22,7 @@ const DEFAULT_DIR_NAME:      &str = ".onepass";
 const DEFAULT_FILE_NAME:     &str = "main.txt";
 
 /// TEST_DIR_NAME is used in tests.
-const TEST_DIR_NAME:      &str = ".onepass_test";
+const TEST_DIR_NAME:       &str = ".onepass_test";
 /// TEST_FILE_NAME is used in tests.
 const TEST_FILE_NAME:      &str = ".main_test.txt";
 
@@ -34,6 +37,60 @@ impl Default for OpParams {
     fn default() -> OpParams {
         OpParams { testing: false, custom_path: None }
     }
+}
+
+pub struct GetResponse {
+    pub copied: bool,
+    pub instance: resource::Instance,
+}
+
+pub fn get(params: OpParams, name: &str, pw: &str) -> Result<GetResponse, String> {
+    let mut f = match open(params.testing) {
+        Ok(v) => v,
+        Err(err) => return Err(err.to_string())
+    };
+    let data = match extract_data(&mut f) {
+        Ok(v) => v,
+        Err(err) => return Err(err.to_string())
+    };
+    let decrypted_content = decrypt(
+        pw,
+        data.buf,
+        data.nonce,
+    )?;
+
+    let mut ctx: ClipboardContext = match ClipboardProvider::new() {
+        Ok(v) => v,
+        Err(err) => return Err(err.to_string()),
+    };
+    let (user, password): (String, String);
+    let lines: Vec<&str> = decrypted_content.lines().collect();
+    for (i, _) in lines.iter().enumerate() {
+        if lines[i] == input::RESERVED_RESOURCE && lines[i+1] == name {
+            if let (Some(next), Some(next_next)) = (lines.get(i + 2), lines.get(i + 3)) {
+                let mut copied = true;
+                user = next.to_string();
+                password = next_next.to_string();
+                if let Err(err) = ctx.set_contents(password.to_owned()) {
+                    println!("copying to clipboard: {}", err);
+                    copied = false;
+                };
+                return Ok(
+                    GetResponse {
+                    instance: resource::Instance{
+                    user,
+                    password,
+                    name: name.to_string(),
+                    },
+                    copied,
+                    }
+                );
+            } else {
+                return Err("uncomplete resource is less than 3 lines".to_string());
+            }
+        }
+    }
+    return Err("resource not found".to_string())
 }
 
 pub fn write(params: OpParams, pw: String, r: resource::Instance) -> Result<(), String> {
