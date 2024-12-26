@@ -80,10 +80,10 @@ pub fn get(args: Vec<String>) -> Result<(), String> {
     let pw = input::master_password()?;
 
     let resp = file::get(None, res, &pw)?;
-    println!("username: {}", resp.instance.user);
+    println!("username: {}", resp.resource.user);
     if !resp.copied {
         println!("printing password, make sure to copy it and clear your terminal...");
-        println!("{}", resp.instance.password);
+        println!("{}", resp.resource.password);
     } else {
         println!("password copied to clipboard");
     };
