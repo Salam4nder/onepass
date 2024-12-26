@@ -12,8 +12,11 @@ impl ToString for Instance {
     fn to_string(&self) -> String {
         let mut s = String::from("resource\n");
         s.push_str(&self.name);
+        s.push_str("\n");
         s.push_str(&self.user);
+        s.push_str("\n");
         s.push_str(&self.password);
+        s.push_str("\n");
         s
     }
 }
