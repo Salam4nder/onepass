@@ -52,10 +52,7 @@ pub fn init() -> Result<(), String> {
     }
 
     let master_password = input::master_password()?;
-
-    if let Err(err) = file::bootstrap(file::OpParams::default(), master_password) {
-        println!("{}", err);
-    }
+    file::bootstrap(file::OpParams::default(), master_password)?;
 
     DONE.store(true, Ordering::Relaxed);
     Ok(())
@@ -65,42 +62,10 @@ pub fn new(stdin: &mut Stdin) -> Result<(), String> {
     if !file::exists() {
         return Err(text::MSG_NOT_SETUP.to_string())
     }
-    // TODO(kg): don't open file multiple times?
     let pw = input::master_password()?;
     let res = input::resource(stdin)?;
-    let mut open_file = match file::open() {
-        Ok(v) => v,
-        Err(err) => return Err(err.to_string()) 
-    };
-    let data = match file::extract_data(&mut open_file) { 
-        Ok(v) => v,
-        Err(err) => return Err(err.to_string()) 
-    };
-    let mut decrypted_content = file::decrypt(&pw, data.buf, data.nonce)?;
-    for line in decrypted_content.lines() {
-        if line.trim() == res.name.trim() {
-            return Err("resource already exists".to_string())
-        }
-    }
+    file::write(file::OpParams::default(), pw, res)?;
 
-    let mut truncated_file = match file::open_truncate() {
-        Ok(v) => v,
-        Err(err) => return Err(err.to_string()) 
-    };
-    let new_nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
-    if let Err(err) = truncated_file.write_all(&new_nonce.to_vec()) {
-        return Err(err.to_string())
-    };
-    decrypted_content.push_str("\n");
-    decrypted_content.push_str(&res.to_string());
-    let encrypted_content = file::encrypt(&pw, &decrypted_content, new_nonce)?;
-    let mut f = match file::open_append() {
-        Ok(v) => v,
-        Err(err) => return Err(err.to_string()) 
-    };
-    if let Err(err) = f.write_all(&encrypted_content) {
-        return Err(err.to_string())
-    };
     DONE.store(true, Ordering::Relaxed);
     Ok(())
 }
@@ -118,7 +83,7 @@ pub fn get(args: Vec<String>) -> Result<(), String> {
     }
     let master_password = input::master_password()?;
 
-    let mut f = match file::open() {
+    let mut f = match file::open(false) {
         Ok(v) => v,
         Err(err) => return Err(err.to_string())
     };
@@ -163,7 +128,7 @@ pub fn list() -> Result<(), String> {
         return Err(text::MSG_NOT_SETUP.to_string());
     }
     let pw = input::master_password()?;
-    let mut f = match file::open() {
+    let mut f = match file::open(false) {
         Ok(v) => v,
         Err(err) => return Err(err.to_string())
     };
@@ -216,7 +181,7 @@ pub fn update(stdin: &mut Stdin, args: Vec<String>) -> Result<(), String> {
     let master_password = input::master_password()?;
     let (key, new_value) = input::update_resource(stdin)?;
 
-    let mut f = match file::open() {
+    let mut f = match file::open(false) {
         Ok(v) => v,
         Err(err) => return Err(err.to_string())
     };
@@ -257,7 +222,7 @@ pub fn update(stdin: &mut Stdin, args: Vec<String>) -> Result<(), String> {
     }
     let new_nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
     let encrypted_content = file::encrypt(&master_password, &data.join("\n"), new_nonce)?;
-    let mut truncated_file = match file::open_truncate() {
+    let mut truncated_file = match file::open_truncate(false) {
         Ok(v) => v,
         Err(err) => return Err(err.to_string()) 
     };
@@ -284,7 +249,7 @@ pub fn del(args: Vec<String>) -> Result<(), String> {
     }
     let master_password = input::master_password()?;
 
-    let mut f = match file::open() {
+    let mut f = match file::open(false) {
         Ok(v) => v,
         Err(err) => return Err(err.to_string())
     };
@@ -326,7 +291,7 @@ pub fn del(args: Vec<String>) -> Result<(), String> {
     }
     let new_nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
     let encrypted_content = file::encrypt(&master_password, &data.join("\n"), new_nonce)?;
-    let mut truncated_file = match file::open_truncate() {
+    let mut truncated_file = match file::open_truncate(false) {
         Ok(v) => v,
         Err(err) => return Err(err.to_string()) 
     };
