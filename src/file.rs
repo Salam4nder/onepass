@@ -12,18 +12,16 @@ use chacha20poly1305::{
 };
 use clipboard::ClipboardProvider;
 use clipboard::ClipboardContext;
-
 use crate::input;
 use crate::resource;
 
 pub const DELIMITER:         &str = "--||--";
-
 const DEFAULT_DIR_NAME:      &str = ".onepass";
 const DEFAULT_FILE_NAME:     &str = "main.txt";
 
 pub struct GetResponse {
     pub copied: bool,
-    pub instance: resource::Instance,
+    pub resource: resource::Instance,
 }
 
 pub fn update(
@@ -141,7 +139,7 @@ pub fn get(custom: Option<&str>, name: &str, pw: &str) -> Result<GetResponse, St
                 };
                 return Ok(
                     GetResponse {
-                        instance: resource::Instance{
+                        resource: resource::Instance{
                             name: name.to_string(),
                             user,
                             password,
@@ -412,9 +410,9 @@ mod tests {
         ).expect("writing");
         let result = get(Some(t_path), &name, master_password).expect("getting");
 
-        assert_eq!(name, result.instance.name);
-        assert_eq!(user, result.instance.user);
-        assert_eq!(password, result.instance.password);
+        assert_eq!(name, result.resource.name);
+        assert_eq!(user, result.resource.user);
+        assert_eq!(password, result.resource.password);
     }
 
     #[test]
@@ -447,5 +445,39 @@ mod tests {
         for v in result {
             assert!(names.contains(&v))
         }
+    }
+
+    #[test]
+    fn test_update() {
+        let id = Uuid::new_v4();
+        let cleanup = Cleanup{file_name: id.to_string()};
+        let t_path = &cleanup.path();
+
+        let master_password = "my_master_pw";
+        bootstrap(Some(t_path), master_password).expect("bootstrapping");
+
+        let name = "twitter".to_string();
+        let user = "user@mail.com";
+        let password = "password";
+        write(
+            Some(t_path),
+            master_password,
+            resource::Instance{
+                name: name.clone(),
+                user: user.to_string(),
+                password: password.to_string(),
+            },
+        ).expect("writing");
+        let result = get(Some(t_path), &name, master_password).expect("getting");
+        assert_eq!(name, result.resource.name);
+        assert_eq!(user, result.resource.user);
+        assert_eq!(password, result.resource.password);
+
+        let new_val: &str = "epic";
+        if let Err(err) = update(Some(t_path), master_password, &name, resource::NAME, new_val) {
+            panic!("updating: {}", err)
+        }
+        let result = get(Some(t_path), &new_val, master_password).expect("getting");
+        assert_eq!(new_val, result.resource.name);
     }
 }
