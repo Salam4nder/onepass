@@ -36,8 +36,38 @@ impl Default for OpParams {
     }
 }
 
-// pub fn write(params: OpParams, pw: String, r: resource::Instance) {
-// }
+pub fn write(params: OpParams, pw: String, r: resource::Instance) -> Result<(), String> {
+    let mut f = match open(params.testing) {
+        Ok(v) => v,
+        Err(err) => return Err(err.to_string()) 
+    };
+    let data = match extract_data(&mut f) { 
+        Ok(v) => v,
+        Err(err) => return Err(err.to_string()) 
+    };
+    let mut content = decrypt(&pw, data.buf, data.nonce)?;
+    for line in content.lines() {
+        if line.trim() == r.name.trim() {
+            return Err("resource already exists".to_string())
+        }
+    }
+
+    let mut truncated = match open_truncate(params.testing) {
+        Ok(v) => v,
+        Err(err) => return Err(err.to_string()) 
+    };
+    let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
+    if let Err(err) = truncated.write_all(&nonce.to_vec()) {
+        return Err(err.to_string())
+    };
+    content.push_str("\n");
+    content.push_str(&r.to_string());
+    let encrypted = encrypt(&pw, &content, nonce)?;
+    if let Err(err) = truncated.write_all(&encrypted) {
+        return Err(err.to_string())
+    };
+    Ok(())
+}
 
 pub fn bootstrap(params: OpParams, pw: String) -> Result<(), String> {
     let mut f = match create(params) {
@@ -105,8 +135,8 @@ pub fn create(params: OpParams) -> io::Result<std::fs::File> {
     Ok(file)
 }
 
-pub fn open() -> io::Result<std::fs::File> {
-    let path = file_path(/* test */ false);
+pub fn open(test: bool) -> io::Result<std::fs::File> {
+    let path = file_path(test);
 
     let file = OpenOptions::new()
         .read(true)
@@ -115,8 +145,8 @@ pub fn open() -> io::Result<std::fs::File> {
     Ok(file)
 }
 
-pub fn open_append() -> io::Result<std::fs::File> {
-    let path = file_path(/* test */ false);
+pub fn open_append(test: bool) -> io::Result<std::fs::File> {
+    let path = file_path(test);
 
     let file = OpenOptions::new()
         .read(true)
@@ -126,8 +156,8 @@ pub fn open_append() -> io::Result<std::fs::File> {
     Ok(file)
 }
 
-pub fn open_truncate() -> io::Result<std::fs::File> {
-    let path = file_path(/* test */ false);
+pub fn open_truncate(test: bool) -> io::Result<std::fs::File> {
+    let path = file_path(test);
 
     let file = OpenOptions::new()
         .read(true)
@@ -223,5 +253,20 @@ mod tests {
         ).expect("decrypting");
 
         assert_eq!(content, decrypted_content);
+    }
+
+    #[test]
+    fn bootstrap_write() {
+        bootstrap(OpParams{testing: true, custom_path: None}, "password".to_string()).expect("bootstrapping");
+        write(
+            OpParams{testing: true, custom_path: None},
+            "password".to_string(),
+            resource::Instance{
+                name: "test".to_string(),
+                user: "user@mail.com".to_string(),
+                password: "password".to_string(),
+            },
+        ).expect("writing");
+        purge(OpParams{testing: true, custom_path: None}).expect("purging");
     }
 }
