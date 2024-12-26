@@ -25,6 +25,67 @@ pub struct GetResponse {
     pub resource: resource::Instance,
 }
 
+pub fn delete(
+    custom: Option<&str>,
+    password: &str,
+    name: &str,
+) -> Result<(), String> {
+    let mut f = match open(custom) {
+        Ok(v) => v,
+        Err(err) => return Err(err.to_string())
+    };
+    let data = match extract_data(&mut f) {
+        Ok(v) => v,
+        Err(err) => return Err(err.to_string())
+    };
+    let decrypted_content = decrypt(
+        password,
+        data.buf,
+        data.nonce,
+    )?;
+
+    let mut data = vec![];
+    let mut found: bool = false;
+    let mut res_idx: usize = 0;
+    let mut user_idx: usize = 0;
+    let mut pass_idx: usize = 0;
+    let lines: Vec<&str> = decrypted_content.lines().collect();
+    for (i, _) in lines.iter().enumerate() {
+        if lines[i] == "\n" {
+            continue
+        }
+        if lines[i] == input::RESERVED_RESOURCE && lines[i+1] == name {
+            found = true;
+            res_idx  = i+1;
+            user_idx = i+2;
+            pass_idx = i+3;
+            continue
+        }
+        if found && i == res_idx || i == user_idx || i == pass_idx {
+            continue
+        } else {
+            data.push(String::from(lines[i]));
+        }
+    }
+    if !found {
+        return Err("resource not found".to_string())
+    }
+    let new_nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
+    let encrypted_content = encrypt(password, &data.join("\n"), new_nonce)?;
+
+    let mut truncated_file = match open_truncate(custom) {
+        Ok(v) => v,
+        Err(err) => return Err(err.to_string()) 
+    };
+    if let Err(err) = truncated_file.write_all(&new_nonce.to_vec()) {
+        return Err(err.to_string())
+    };
+    if let Err(err) = truncated_file.write_all(&encrypted_content) {
+        return Err(err.to_string())
+    };
+    Ok(())
+}
+
 pub fn update(
     custom: Option<&str>,
     password: &str,
@@ -106,7 +167,11 @@ pub fn list(custom: Option<&str>, password: &str) -> Result<Vec<String>, String>
     Ok(result)
 }
 
-pub fn get(custom: Option<&str>, name: &str, pw: &str) -> Result<GetResponse, String> {
+pub fn get(
+    custom: Option<&str>,
+    password: &str,
+    name: &str,
+) -> Result<GetResponse, String> {
     let mut f = match open(custom) {
         Ok(v) => v,
         Err(err) => return Err(err.to_string())
@@ -116,7 +181,7 @@ pub fn get(custom: Option<&str>, name: &str, pw: &str) -> Result<GetResponse, St
         Err(err) => return Err(err.to_string())
     };
     let decrypted_content = decrypt(
-        pw,
+        password,
         data.buf,
         data.nonce,
     )?;
@@ -287,7 +352,11 @@ pub fn extract_data(f: &mut File) -> Result<Data, io::Error> {
     Ok(Data { nonce, buf })
 }
 
-pub fn encrypt(key: &str, content: &str, nonce: chacha20poly1305::Nonce) -> Result<Vec<u8>, String>{
+pub fn encrypt(
+    key: &str,
+    content: &str,
+    nonce: chacha20poly1305::Nonce,
+) -> Result<Vec<u8>, String>{
     let h = hmac_sha256::Hash::hash(key.as_bytes());
 
     let cipher = match ChaCha20Poly1305::new_from_slice(&h) {
@@ -303,7 +372,11 @@ pub fn encrypt(key: &str, content: &str, nonce: chacha20poly1305::Nonce) -> Resu
     Ok(ciphertext)
 }
 
-pub fn decrypt(key: &str, content: Vec<u8>, nonce: chacha20poly1305::Nonce) -> Result<String, String> {
+pub fn decrypt(
+    key: &str,
+    content: Vec<u8>,
+    nonce: chacha20poly1305::Nonce,
+) -> Result<String, String> {
     let h = hmac_sha256::Hash::hash(key.as_bytes());
 
     let cipher = match ChaCha20Poly1305::new_from_slice(&h) {
@@ -473,5 +546,34 @@ mod tests {
         }
         let result = get(Some(t_path), &new_val, master_password).expect("getting");
         assert_eq!(new_val, result.resource.name);
+    }
+
+    #[test]fn test_del() {
+        let id = Uuid::new_v4();
+        let cleanup = Cleanup{file_name: id.to_string()};
+        let t_path = &cleanup.path();
+
+        let master_password = "my_master_pw";
+        bootstrap(Some(t_path), master_password).expect("bootstrapping");
+
+        let name = "twitter".to_string();
+        let user = "user@mail.com";
+        let password = "password";
+        write(
+            Some(t_path),
+            master_password,
+            resource::Instance{
+                name: name.clone(),
+                user: user.to_string(),
+                password: password.to_string(),
+            },
+        ).expect("writing");
+        let result = get(Some(t_path), &name, master_password).expect("getting");
+        if let Err(err) = delete(Some(t_path), master_password, &result.resource.name) {
+            panic!("{}", err)
+        }
+
+        let l = list(Some(t_path), master_password).expect("listing");
+        assert_eq!(0, l.len())
     }
 }
