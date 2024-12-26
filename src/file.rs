@@ -44,6 +44,67 @@ pub struct GetResponse {
     pub instance: resource::Instance,
 }
 
+pub fn update(
+    params: OpParams,
+    password: &str,
+    name: &str,
+    key: &str,
+    val: &str,
+) -> Result<(), String> {
+    let mut f = match open(params.testing) {
+        Ok(v) => v,
+        Err(err) => return Err(err.to_string())
+    };
+
+    let data = match extract_data(&mut f) {
+        Ok(v) => v,
+        Err(err) => return Err(err.to_string())
+    };
+    let decrypted_content = decrypt(
+        password,
+        data.buf,
+        data.nonce,
+    )?;
+
+    let mut data = vec![];
+    let mut target_idx: usize = 0;
+    let lines: Vec<&str> = decrypted_content.lines().collect();
+    for (i, _) in lines.iter().enumerate() {
+        if lines[i] == "\n" {
+            continue
+        }
+        if lines[i] == input::RESERVED_RESOURCE && lines[i+1] == name {
+            match key {
+                resource::NAME     => {target_idx = i+1},
+                resource::USER     => {target_idx = i+2},
+                resource::PASSWORD => {target_idx = i+3},
+                _                  => { return Err("bad resource key".to_string()) },
+            }
+        }
+        if target_idx != 0 && i == target_idx {
+            data.push(String::from(val));
+        } else {
+            data.push(String::from(lines[i]));
+        }
+    }
+    if target_idx == 0 {
+        return Err("resource not found".to_string())
+    }
+    let new_nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
+    let encrypted_content = encrypt(password, &data.join("\n"), new_nonce)?;
+    let mut truncated_file = match open_truncate(false) {
+        Ok(v) => v,
+        Err(err) => return Err(err.to_string()) 
+    };
+    if let Err(err) = truncated_file.write_all(&new_nonce.to_vec()) {
+        return Err(err.to_string())
+    };
+    if let Err(err) = truncated_file.write_all(&encrypted_content) {
+        return Err(err.to_string())
+    };
+    Ok(())
+}
+
 pub fn list(params: OpParams, password: &str) -> Result<Vec<String>, String> {
     let mut f = match open(params.testing) {
         Ok(v) => v,
