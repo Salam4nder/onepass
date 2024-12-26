@@ -21,37 +21,19 @@ pub const DELIMITER:         &str = "--||--";
 const DEFAULT_DIR_NAME:      &str = ".onepass";
 const DEFAULT_FILE_NAME:     &str = "main.txt";
 
-/// TEST_DIR_NAME is used in tests.
-const TEST_DIR_NAME:       &str = ".onepass_test";
-/// TEST_FILE_NAME is used in tests.
-const TEST_FILE_NAME:      &str = ".main_test.txt";
-
-/// OpParams can be used to alter the default file path on basic
-/// file operations. Can be created with `OpParams::default() otherwise` 
-pub struct OpParams {
-    pub testing: bool,
-    pub custom_path: Option<String>
-}
-
-impl Default for OpParams {
-    fn default() -> OpParams {
-        OpParams { testing: false, custom_path: None }
-    }
-}
-
 pub struct GetResponse {
     pub copied: bool,
     pub instance: resource::Instance,
 }
 
 pub fn update(
-    params: OpParams,
+    custom: Option<&str>,
     password: &str,
     name: &str,
     key: &str,
     val: &str,
 ) -> Result<(), String> {
-    let mut f = match open(params.testing) {
+    let mut f = match open(custom) {
         Ok(v) => v,
         Err(err) => return Err(err.to_string())
     };
@@ -92,7 +74,7 @@ pub fn update(
     }
     let new_nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
     let encrypted_content = encrypt(password, &data.join("\n"), new_nonce)?;
-    let mut truncated_file = match open_truncate(false) {
+    let mut truncated_file = match open_truncate(custom) {
         Ok(v) => v,
         Err(err) => return Err(err.to_string()) 
     };
@@ -105,8 +87,8 @@ pub fn update(
     Ok(())
 }
 
-pub fn list(params: OpParams, password: &str) -> Result<Vec<String>, String> {
-    let mut f = match open(params.testing) {
+pub fn list(custom: Option<&str>, password: &str) -> Result<Vec<String>, String> {
+    let mut f = match open(custom) {
         Ok(v) => v,
         Err(err) => return Err(err.to_string())
     };
@@ -125,8 +107,8 @@ pub fn list(params: OpParams, password: &str) -> Result<Vec<String>, String> {
     Ok(result)
 }
 
-pub fn get(params: OpParams, name: &str, pw: &str) -> Result<GetResponse, String> {
-    let mut f = match open(params.testing) {
+pub fn get(custom: Option<&str>, name: &str, pw: &str) -> Result<GetResponse, String> {
+    let mut f = match open(custom) {
         Ok(v) => v,
         Err(err) => return Err(err.to_string())
     };
@@ -175,8 +157,8 @@ pub fn get(params: OpParams, name: &str, pw: &str) -> Result<GetResponse, String
     return Err("resource not found".to_string())
 }
 
-pub fn write(params: OpParams, password: &str, r: resource::Instance) -> Result<(), String> {
-    let mut f = match open(params.testing) {
+pub fn write(custom: Option<&str>, password: &str, r: resource::Instance) -> Result<(), String> {
+    let mut f = match open(custom) {
         Ok(v) => v,
         Err(err) => return Err(err.to_string()) 
     };
@@ -191,7 +173,7 @@ pub fn write(params: OpParams, password: &str, r: resource::Instance) -> Result<
         }
     }
 
-    let mut truncated = match open_truncate(params.testing) {
+    let mut truncated = match open_truncate(custom) {
         Ok(v) => v,
         Err(err) => return Err(err.to_string()) 
     };
@@ -208,8 +190,8 @@ pub fn write(params: OpParams, password: &str, r: resource::Instance) -> Result<
     Ok(())
 }
 
-pub fn bootstrap(params: OpParams, password: &str) -> Result<(), String> {
-    let mut f = match create(params) {
+pub fn bootstrap(custom: Option<&str>, password: &str) -> Result<(), String> {
+    let mut f = match create(custom) {
         Ok(v) => v,
         Err(err) => return Err(err.to_string()) 
     };
@@ -229,16 +211,15 @@ pub fn bootstrap(params: OpParams, password: &str) -> Result<(), String> {
     Ok(())
 }
 
-pub fn purge(params: OpParams) -> io::Result<()> {
-    std::fs::remove_dir_all(dir_path(params.testing)) 
+pub fn purge(custom: Option<&str>) -> io::Result<()> {
+    std::fs::remove_file(file_path(custom)) 
 }
 
-pub fn file_path(test: bool) -> PathBuf {
+pub fn file_path(custom: Option<&str>) -> PathBuf {
     let home_dir = env::var("HOME").unwrap();
     let mut path = PathBuf::from(home_dir);
-    if test {
-        path.push(TEST_DIR_NAME);
-        path.push(TEST_FILE_NAME);
+    if let Some(c) = custom {
+        path.push(c);
     } else {
         path.push(DEFAULT_DIR_NAME);
         path.push(DEFAULT_FILE_NAME);
@@ -246,21 +227,10 @@ pub fn file_path(test: bool) -> PathBuf {
     path
 }
 
-pub fn dir_path(test: bool) -> PathBuf {
-    let home_dir = env::var("HOME").unwrap();
-    let mut path = PathBuf::from(home_dir);
-    if test {
-        path.push(TEST_DIR_NAME);
-    } else {
-        path.push(DEFAULT_DIR_NAME);
-    }
-    path
-}
-
 /// Create the needed file to init the engine.
 /// The path can be adjusted with parameters.
-pub fn create(params: OpParams) -> io::Result<std::fs::File> {
-    let path = file_path(params.testing);
+pub fn create(custom: Option<&str>) -> io::Result<std::fs::File> {
+    let path = file_path(custom);
 
     if let Some(parent_dir) = path.parent() {
         std::fs::create_dir_all(parent_dir)?;
@@ -274,8 +244,8 @@ pub fn create(params: OpParams) -> io::Result<std::fs::File> {
     Ok(file)
 }
 
-pub fn open(test: bool) -> io::Result<std::fs::File> {
-    let path = file_path(test);
+pub fn open(custom: Option<&str>) -> io::Result<std::fs::File> {
+    let path = file_path(custom);
 
     let file = OpenOptions::new()
         .read(true)
@@ -284,8 +254,8 @@ pub fn open(test: bool) -> io::Result<std::fs::File> {
     Ok(file)
 }
 
-pub fn open_append(test: bool) -> io::Result<std::fs::File> {
-    let path = file_path(test);
+pub fn open_append(custom: Option<&str>) -> io::Result<std::fs::File> {
+    let path = file_path(custom);
 
     let file = OpenOptions::new()
         .read(true)
@@ -295,8 +265,8 @@ pub fn open_append(test: bool) -> io::Result<std::fs::File> {
     Ok(file)
 }
 
-pub fn open_truncate(test: bool) -> io::Result<std::fs::File> {
-    let path = file_path(test);
+pub fn open_truncate(custom: Option<&str>) -> io::Result<std::fs::File> {
+    let path = file_path(custom);
 
     let file = OpenOptions::new()
         .read(true)
@@ -307,8 +277,8 @@ pub fn open_truncate(test: bool) -> io::Result<std::fs::File> {
     Ok(file)
 }
 
-pub fn exists() -> bool {
-    let path = file_path(/* test */ false);
+pub fn exists(custom: Option<&str>) -> bool {
+    let path = file_path(custom);
 
     if let Err(err) = OpenOptions::new().read(true).open(&path) {
         if err.kind() == io::ErrorKind::NotFound {
@@ -375,12 +345,21 @@ pub fn decrypt(key: &str, content: Vec<u8>, nonce: chacha20poly1305::Nonce) -> R
 #[cfg(test)]
 mod tests {
     use super::*;
+    use uuid::Uuid;
+
     
-    struct Cleanup;
+    struct Cleanup {file_name: String}
+
+    impl Cleanup {
+        fn path(&self) -> String {
+            format!("{}/{}.txt", DEFAULT_DIR_NAME, self.file_name).as_str().to_string()
+        }
+    }
 
     impl Drop for Cleanup {
         fn drop(&mut self) {
-            purge(OpParams{testing: true, custom_path: None}).expect("cleaning up")
+            let file_path = format!("{}/{}.txt", DEFAULT_DIR_NAME, self.file_name);
+            purge(Some(&file_path)).expect("cleaning up");
         }
     }
 
@@ -401,19 +380,29 @@ mod tests {
     }
 
     #[test]
-    fn test_file() {
-        let _c = Cleanup{};
+    fn test_bootstrap() {
+        let id = Uuid::new_v4();
+        let cleanup = Cleanup{file_name: id.to_string()};
+        let t_path = &cleanup.path();
+        let master_password = "my_master_pw";
+        bootstrap(Some(t_path), master_password).expect("bootstrapping");
+    }
+
+    #[test]
+    fn test_get() {
+        let id = Uuid::new_v4();
+        let cleanup = Cleanup{file_name: id.to_string()};
+        let t_path = &cleanup.path();
 
         let master_password = "my_master_pw";
-        bootstrap(OpParams{testing: true, custom_path: None}, master_password).expect("bootstrapping");
+        bootstrap(Some(t_path), master_password).expect("bootstrapping");
 
-        let mut names = vec![];
 
         let name = "twitter".to_string();
         let user = "user@mail.com";
         let password = "password";
         write(
-            OpParams{testing: true, custom_path: None},
+            Some(t_path),
             master_password,
             resource::Instance{
                 name: name.clone(),
@@ -421,19 +410,29 @@ mod tests {
                 password: password.to_string(),
             },
         ).expect("writing");
-        let result = get(OpParams{testing: true, custom_path: None}, &name, master_password).expect("getting");
+        let result = get(Some(t_path), &name, master_password).expect("getting");
 
         assert_eq!(name, result.instance.name);
         assert_eq!(user, result.instance.user);
         assert_eq!(password, result.instance.password);
+    }
 
-        names.push(name);
+    #[test]
+    fn test_list() {
+        let id = Uuid::new_v4();
+        let cleanup = Cleanup{file_name: id.to_string()};
+        let t_path = &cleanup.path();
+
+        let master_password = "my_master_pw";
+        bootstrap(Some(t_path), master_password).expect("bootstrapping");
+
+        let mut names = vec![];
         for i in 0..100 {
             let name = format!("{}-name", i);
             let user = format!("{}-user", i);
             let password = format!("{}-password", i);
             write(
-                OpParams{testing: true, custom_path: None},
+                Some(t_path),
                 master_password,
                 resource::Instance{
                     name: name.clone(),
@@ -444,7 +443,7 @@ mod tests {
             names.push(name);
         }
 
-        let result = list(OpParams{testing:true, custom_path: None}, master_password).expect("listing");
+        let result = list(Some(t_path), master_password).expect("listing");
         for v in result {
             assert!(names.contains(&v))
         }
