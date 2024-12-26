@@ -2,14 +2,11 @@ use crate::text;
 use crate::file;
 use crate::input;
 use crate::password;
-use crate::resource;
 use std::io::Write;
 use std::io::Stdin;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use rand::rngs::OsRng;
-use clipboard::ClipboardProvider;
-use clipboard::ClipboardContext;
 use chacha20poly1305::{
     aead::AeadCore,
     ChaCha20Poly1305
@@ -46,31 +43,31 @@ impl Kind {
 
 /// Initialize the onepass engine by creating the needed directory and file.
 pub fn init() -> Result<(), String> {
-    if file::exists() {
+    if file::exists(None) {
         return Err(text::MSG_SETUP.to_string())
     }
 
     let pw = input::master_password()?;
-    file::bootstrap(file::OpParams::default(), &pw)?;
+    file::bootstrap(None, &pw)?;
 
     DONE.store(true, Ordering::Relaxed);
     Ok(())
 }
 
 pub fn new(stdin: &mut Stdin) -> Result<(), String> {
-    if !file::exists() {
+    if !file::exists(None) {
         return Err(text::MSG_NOT_SETUP.to_string())
     }
     let pw = input::master_password()?;
     let res = input::resource(stdin)?;
-    file::write(file::OpParams::default(), &pw, res)?;
+    file::write(None, &pw, res)?;
 
     DONE.store(true, Ordering::Relaxed);
     Ok(())
 }
 
 pub fn get(args: Vec<String>) -> Result<(), String> {
-    if !file::exists() {
+    if !file::exists(None) {
         return Err(text::MSG_NOT_SETUP.to_string());
     }
     if args.len() < 3 {
@@ -82,7 +79,7 @@ pub fn get(args: Vec<String>) -> Result<(), String> {
     }
     let pw = input::master_password()?;
 
-    let resp = file::get(file::OpParams::default(), res, &pw)?;
+    let resp = file::get(None, res, &pw)?;
     println!("username: {}", resp.instance.user);
     if !resp.copied {
         println!("printing password, make sure to copy it and clear your terminal...");
@@ -96,11 +93,11 @@ pub fn get(args: Vec<String>) -> Result<(), String> {
 }
 
 pub fn list() -> Result<(), String> {
-    if !file::exists() {
+    if !file::exists(None) {
         return Err(text::MSG_NOT_SETUP.to_string());
     }
     let pw = input::master_password()?;
-    let result = file::list(file::OpParams::default(), &pw)?;
+    let result = file::list(None, &pw)?;
     if result.len() < 1 {
         println!("no saved resources");
     }
@@ -112,7 +109,7 @@ pub fn list() -> Result<(), String> {
 }
 
 pub fn purge() -> Result<(), String> {
-    if let Err(err) = file::purge(file::OpParams::default()) {
+    if let Err(err) = file::purge(None) {
         return Err(err.to_string());
     };
     DONE.store(true, Ordering::Relaxed);
@@ -125,7 +122,7 @@ pub fn suggest() -> String {
 }
 
 pub fn update(stdin: &mut Stdin, args: Vec<String>) -> Result<(), String> {
-    if !file::exists() {
+    if !file::exists(None) {
         return Err(text::MSG_NOT_SETUP.to_string());
     }
     if args.len() < 3 {
@@ -137,14 +134,14 @@ pub fn update(stdin: &mut Stdin, args: Vec<String>) -> Result<(), String> {
     }
     let password = input::master_password()?;
     let (key, val) = input::update_resource(stdin)?;
-    file::update(file::OpParams::default(), &password, res, &key, &val)?;
+    file::update(None, &password, res, &key, &val)?;
 
     DONE.store(true, Ordering::Relaxed);
     Ok(())
 }
 
 pub fn del(args: Vec<String>) -> Result<(), String> {
-    if !file::exists() {
+    if !file::exists(None) {
         return Err(text::MSG_NOT_SETUP.to_string());
     }
     if args.len() < 3 {
@@ -156,7 +153,7 @@ pub fn del(args: Vec<String>) -> Result<(), String> {
     }
     let master_password = input::master_password()?;
 
-    let mut f = match file::open(false) {
+    let mut f = match file::open(None) {
         Ok(v) => v,
         Err(err) => return Err(err.to_string())
     };
@@ -198,7 +195,7 @@ pub fn del(args: Vec<String>) -> Result<(), String> {
     }
     let new_nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
     let encrypted_content = file::encrypt(&master_password, &data.join("\n"), new_nonce)?;
-    let mut truncated_file = match file::open_truncate(false) {
+    let mut truncated_file = match file::open_truncate(None) {
         Ok(v) => v,
         Err(err) => return Err(err.to_string()) 
     };
