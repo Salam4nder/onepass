@@ -66,6 +66,7 @@ pub fn get(params: OpParams, name: &str, pw: &str) -> Result<GetResponse, String
     let (user, password): (String, String);
     let lines: Vec<&str> = decrypted_content.lines().collect();
     for (i, _) in lines.iter().enumerate() {
+        println!("{}", lines[i]);
         if lines[i] == input::RESERVED_RESOURCE && lines[i+1] == name {
             if let (Some(next), Some(next_next)) = (lines.get(i + 2), lines.get(i + 3)) {
                 let mut copied = true;
@@ -77,12 +78,12 @@ pub fn get(params: OpParams, name: &str, pw: &str) -> Result<GetResponse, String
                 };
                 return Ok(
                     GetResponse {
-                    instance: resource::Instance{
-                    user,
-                    password,
-                    name: name.to_string(),
-                    },
-                    copied,
+                        instance: resource::Instance{
+                            name: name.to_string(),
+                            user,
+                            password,
+                        },
+                        copied,
                     }
                 );
             } else {
@@ -93,7 +94,7 @@ pub fn get(params: OpParams, name: &str, pw: &str) -> Result<GetResponse, String
     return Err("resource not found".to_string())
 }
 
-pub fn write(params: OpParams, pw: String, r: resource::Instance) -> Result<(), String> {
+pub fn write(params: OpParams, password: &str, r: resource::Instance) -> Result<(), String> {
     let mut f = match open(params.testing) {
         Ok(v) => v,
         Err(err) => return Err(err.to_string()) 
@@ -102,7 +103,7 @@ pub fn write(params: OpParams, pw: String, r: resource::Instance) -> Result<(), 
         Ok(v) => v,
         Err(err) => return Err(err.to_string()) 
     };
-    let mut content = decrypt(&pw, data.buf, data.nonce)?;
+    let mut content = decrypt(password, data.buf, data.nonce)?;
     for line in content.lines() {
         if line.trim() == r.name.trim() {
             return Err("resource already exists".to_string())
@@ -119,14 +120,14 @@ pub fn write(params: OpParams, pw: String, r: resource::Instance) -> Result<(), 
     };
     content.push_str("\n");
     content.push_str(&r.to_string());
-    let encrypted = encrypt(&pw, &content, nonce)?;
+    let encrypted = encrypt(password, &content, nonce)?;
     if let Err(err) = truncated.write_all(&encrypted) {
         return Err(err.to_string())
     };
     Ok(())
 }
 
-pub fn bootstrap(params: OpParams, pw: String) -> Result<(), String> {
+pub fn bootstrap(params: OpParams, password: &str) -> Result<(), String> {
     let mut f = match create(params) {
         Ok(v) => v,
         Err(err) => return Err(err.to_string()) 
@@ -140,7 +141,7 @@ pub fn bootstrap(params: OpParams, pw: String) -> Result<(), String> {
     content.push_str(DELIMITER);
     content.push_str("\n");
 
-    let encrypted_content = encrypt(&pw, &content, nonce)?;
+    let encrypted_content = encrypt(password, &content, nonce)?;
     if let Err(err) = f.write_all(&encrypted_content) {
         return Err(err.to_string())
     };
@@ -293,8 +294,14 @@ pub fn decrypt(key: &str, content: Vec<u8>, nonce: chacha20poly1305::Nonce) -> R
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chacha20poly1305::AeadCore;
-    use rand::rngs::OsRng;
+    
+    struct Cleanup;
+
+    impl Drop for Cleanup {
+        fn drop(&mut self) {
+            purge(OpParams{testing: true, custom_path: None}).expect("cleaning up");
+        }
+    }
 
     #[test]
     fn encrypt_decrypt() {
@@ -314,16 +321,29 @@ mod tests {
 
     #[test]
     fn bootstrap_write() {
-        bootstrap(OpParams{testing: true, custom_path: None}, "password".to_string()).expect("bootstrapping");
+        let _c = Cleanup{};
+
+        let master_password = "my_master_pw";
+        bootstrap(OpParams{testing: true, custom_path: None}, master_password).expect("bootstrapping");
+
+
+        let name = "twitter".to_string();
+        let user = "user@mail.com";
+        let password = "password";
+        println!("{}", resource::Instance{name: name.clone(), user: user.to_string(), password: password.to_string()}.to_string());
         write(
             OpParams{testing: true, custom_path: None},
-            "password".to_string(),
+            master_password,
             resource::Instance{
-                name: "test".to_string(),
-                user: "user@mail.com".to_string(),
-                password: "password".to_string(),
+                name: name.clone(),
+                user: user.to_string(),
+                password: password.to_string(),
             },
         ).expect("writing");
-        purge(OpParams{testing: true, custom_path: None}).expect("purging");
+        let result = get(OpParams{testing: true, custom_path: None}, &name, master_password).expect("getting");
+
+        assert_eq!(name, result.instance.name);
+        assert_eq!(user, result.instance.user);
+        assert_eq!(password, result.instance.password);
     }
 }
