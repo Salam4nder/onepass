@@ -52,7 +52,7 @@ pub fn init() -> Result<(), String> {
     }
 
     let pw = input::master_password()?;
-    file::bootstrap(file::OpParams::default(), pw)?;
+    file::bootstrap(file::OpParams::default(), &pw)?;
 
     DONE.store(true, Ordering::Relaxed);
     Ok(())
@@ -64,7 +64,7 @@ pub fn new(stdin: &mut Stdin) -> Result<(), String> {
     }
     let pw = input::master_password()?;
     let res = input::resource(stdin)?;
-    file::write(file::OpParams::default(), pw, res)?;
+    file::write(file::OpParams::default(), &pw, res)?;
 
     DONE.store(true, Ordering::Relaxed);
     Ok(())
