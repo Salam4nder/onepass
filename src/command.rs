@@ -131,64 +131,14 @@ pub fn update(stdin: &mut Stdin, args: Vec<String>) -> Result<(), String> {
     if args.len() < 3 {
         return Err(text::MSG_GET.to_string());
     }
-    let resource_str = &args[2];
-    if input::is_reserved(resource_str) {
+    let res = &args[2];
+    if input::is_reserved(res) {
         return Err("use of reserved keyword".to_string());
     }
-    let master_password = input::master_password()?;
-    let (key, new_value) = input::update_resource(stdin)?;
+    let password = input::master_password()?;
+    let (key, val) = input::update_resource(stdin)?;
+    file::update(file::OpParams::default(), &password, res, &key, &val)?;
 
-    let mut f = match file::open(false) {
-        Ok(v) => v,
-        Err(err) => return Err(err.to_string())
-    };
-
-    let data = match file::extract_data(&mut f) {
-        Ok(v) => v,
-        Err(err) => return Err(err.to_string())
-    };
-    let decrypted_content = file::decrypt(
-        &master_password,
-        data.buf,
-        data.nonce,
-    )?;
-
-    let mut data = vec![];
-    let mut target_idx: usize = 0;
-    let lines: Vec<&str> = decrypted_content.lines().collect();
-    for (i, _) in lines.iter().enumerate() {
-        if lines[i] == "\n" {
-            continue
-        }
-        if lines[i] == input::RESERVED_RESOURCE && lines[i+1] == resource_str {
-            match key.as_str() {
-                resource::NAME     => {target_idx = i+1},
-                resource::USER     => {target_idx = i+2},
-                resource::PASSWORD => {target_idx = i+3},
-                _                  => { return Err("bad resource key".to_string()) },
-            }
-        }
-        if target_idx != 0 && i == target_idx {
-            data.push(String::from(new_value.clone()));
-        } else {
-            data.push(String::from(lines[i]));
-        }
-    }
-    if target_idx == 0 {
-        return Err("resource not found".to_string())
-    }
-    let new_nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
-    let encrypted_content = file::encrypt(&master_password, &data.join("\n"), new_nonce)?;
-    let mut truncated_file = match file::open_truncate(false) {
-        Ok(v) => v,
-        Err(err) => return Err(err.to_string()) 
-    };
-    if let Err(err) = truncated_file.write_all(&new_nonce.to_vec()) {
-        return Err(err.to_string())
-    };
-    if let Err(err) = truncated_file.write_all(&encrypted_content) {
-        return Err(err.to_string())
-    };
     DONE.store(true, Ordering::Relaxed);
     Ok(())
 }
