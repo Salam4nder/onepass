@@ -45,7 +45,6 @@ impl Kind {
 }
 
 /// Initialize the onepass engine by creating the needed directory and file.
-/// It will create and cleanup a temporary file for testing purposes if [testing] is true.
 pub fn init() -> Result<(), String> {
     if file::exists() {
         return Err(text::MSG_SETUP.to_string())
@@ -101,22 +100,7 @@ pub fn list() -> Result<(), String> {
         return Err(text::MSG_NOT_SETUP.to_string());
     }
     let pw = input::master_password()?;
-    let mut f = match file::open(false) {
-        Ok(v) => v,
-        Err(err) => return Err(err.to_string())
-    };
-    let data = match file::extract_data(&mut f) {
-        Ok(v) => v,
-        Err(err) => return Err(err.to_string())
-    };
-    let decrypted_content = file::decrypt(&pw, data.buf, data.nonce)?;
-    let lines: Vec<&str> = decrypted_content.lines().collect();
-    let mut result: Vec<String> = vec![];
-    for (i, _) in decrypted_content.lines().into_iter().enumerate(){
-        if lines[i] == input::RESERVED_RESOURCE {
-            result.push(String::from(lines[i+1]))
-        }
-    }
+    let result = file::list(file::OpParams::default(), &pw)?;
     if result.len() < 1 {
         println!("no saved resources");
     }
@@ -276,11 +260,4 @@ pub fn del(args: Vec<String>) -> Result<(), String> {
     };
     DONE.store(true, Ordering::Relaxed);
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-
-    #[test]
-    fn test(){}
 }
