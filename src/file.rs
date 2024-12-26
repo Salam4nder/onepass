@@ -1,17 +1,18 @@
-use std::fs::OpenOptions;
-use std::path::PathBuf;
 use std::env;
 use std::fs::File;
+use std::fs::OpenOptions;
+use std::path::{Path, PathBuf};
 use std::io::{self, Read, Write};
-use chacha20poly1305::AeadCore;
+
 use hmac_sha256;
 use rand::rngs::OsRng;
+use clipboard::ClipboardProvider;
+use clipboard::ClipboardContext;
+use chacha20poly1305::AeadCore;
 use chacha20poly1305::{
     aead::{Aead, KeyInit},
     ChaCha20Poly1305, Nonce,
 };
-use clipboard::ClipboardProvider;
-use clipboard::ClipboardContext;
 use crate::input;
 use crate::resource;
 
@@ -252,17 +253,6 @@ pub fn open(custom: Option<&str>) -> io::Result<std::fs::File> {
     Ok(file)
 }
 
-pub fn open_append(custom: Option<&str>) -> io::Result<std::fs::File> {
-    let path = file_path(custom);
-
-    let file = OpenOptions::new()
-        .read(true)
-        .append(true)
-        .open(&path)?;
-
-    Ok(file)
-}
-
 pub fn open_truncate(custom: Option<&str>) -> io::Result<std::fs::File> {
     let path = file_path(custom);
 
@@ -277,15 +267,7 @@ pub fn open_truncate(custom: Option<&str>) -> io::Result<std::fs::File> {
 
 pub fn exists(custom: Option<&str>) -> bool {
     let path = file_path(custom);
-
-    if let Err(err) = OpenOptions::new().read(true).open(&path) {
-        if err.kind() == io::ErrorKind::NotFound {
-            return false;
-        } else {
-            return true;
-        }
-    };
-    true
+    Path::new(&path).exists()
 }
 
 pub struct Data {
@@ -344,7 +326,6 @@ pub fn decrypt(key: &str, content: Vec<u8>, nonce: chacha20poly1305::Nonce) -> R
 mod tests {
     use super::*;
     use uuid::Uuid;
-
     
     struct Cleanup {file_name: String}
 
@@ -375,6 +356,19 @@ mod tests {
         ).expect("decrypting");
 
         assert_eq!(content, decrypted_content);
+    }
+
+    #[test]
+    fn test_exists() {
+        let id = Uuid::new_v4();
+        let cleanup = Cleanup{file_name: id.to_string()};
+        let t_path = &cleanup.path();
+        let master_password = "my_master_pw";
+        bootstrap(Some(t_path), master_password).expect("bootstrapping");
+
+        if !exists(Some(t_path)) {
+            panic!("exists incorrect")
+        }
     }
 
     #[test]
