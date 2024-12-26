@@ -51,8 +51,8 @@ pub fn init() -> Result<(), String> {
         return Err(text::MSG_SETUP.to_string())
     }
 
-    let master_password = input::master_password()?;
-    file::bootstrap(file::OpParams::default(), master_password)?;
+    let pw = input::master_password()?;
+    file::bootstrap(file::OpParams::default(), pw)?;
 
     DONE.store(true, Ordering::Relaxed);
     Ok(())
@@ -77,48 +77,21 @@ pub fn get(args: Vec<String>) -> Result<(), String> {
     if args.len() < 3 {
         return Err(text::MSG_GET.to_string());
     }
-    let resource_str = &args[2];
-    if input::is_reserved(resource_str) {
+    let res = &args[2];
+    if input::is_reserved(res) {
         return Err("use of reserved keyword".to_string());
     }
-    let master_password = input::master_password()?;
+    let pw = input::master_password()?;
 
-    let mut f = match file::open(false) {
-        Ok(v) => v,
-        Err(err) => return Err(err.to_string())
+    let resp = file::get(file::OpParams::default(), res, &pw)?;
+    println!("username: {}", resp.instance.user);
+    if !resp.copied {
+        println!("printing password, make sure to copy it and clear your terminal...");
+        println!("{}", resp.instance.password);
+    } else {
+        println!("password copied to clipboard");
     };
-    let data = match file::extract_data(&mut f) {
-        Ok(v) => v,
-        Err(err) => return Err(err.to_string())
-    };
-    let decrypted_content = file::decrypt(
-        &master_password,
-        data.buf,
-        data.nonce,
-    )?;
 
-    let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
-    let (user, pw): (String, String);
-    let lines: Vec<&str> = decrypted_content.lines().collect();
-    for (i, line) in lines.iter().enumerate() {
-        if *line == input::RESERVED_RESOURCE && lines[i+1] == resource_str {
-            if let (Some(next), Some(next_next)) = (lines.get(i + 2), lines.get(i + 3)) {
-                user = next.to_string();
-                pw = next_next.to_string();
-                if let Err(err) = ctx.set_contents(pw.to_owned()) {
-                    println!("could not copy password to clipboard: {}", err);
-                    println!("printing password, make sure to copy it and clear your terminal...");
-                    println!("{}", pw);
-                };
-                println!("username: {}", user);
-                println!("password copied to clipboard");
-                return Ok(());
-            } else {
-                return Err("uncomplete resource is less than 3 lines".to_string());
-            }
-        }
-    }
-    println!("resource not found");
     DONE.store(true, Ordering::Relaxed);
     Ok(())
 }
