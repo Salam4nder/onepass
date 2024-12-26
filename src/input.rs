@@ -37,13 +37,13 @@ pub fn resource(i: &mut Stdin) -> Result<resource::Instance, String> {
         if is_reserved(&input) {
             return Err("use of reserved keyword".to_string());
         };
-        Ok(input)
+        Ok(input.trim().to_string())
     };
     let password: String;
     let name = fn_ask_for("resource")?;
     let user = fn_ask_for("user")?;
     let yes_no = fn_ask_for("generated a strong password, do you want to use it? (y/n)")?;
-    if yes_no == "y\n" {
+    if yes_no == "y" {
         password = password::suggest(14);
     } else {
         password = match rpassword::prompt_password("choose a password: ") {
