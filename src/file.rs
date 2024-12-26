@@ -44,6 +44,26 @@ pub struct GetResponse {
     pub instance: resource::Instance,
 }
 
+pub fn list(params: OpParams, password: &str) -> Result<Vec<String>, String> {
+    let mut f = match open(params.testing) {
+        Ok(v) => v,
+        Err(err) => return Err(err.to_string())
+    };
+    let data = match extract_data(&mut f) {
+        Ok(v) => v,
+        Err(err) => return Err(err.to_string())
+    };
+    let decrypted_content = decrypt(password, data.buf, data.nonce)?;
+    let lines: Vec<&str> = decrypted_content.lines().collect();
+    let mut result: Vec<String> = vec![];
+    for (i, _) in decrypted_content.lines().into_iter().enumerate(){
+        if lines[i] == input::RESERVED_RESOURCE {
+            result.push(String::from(lines[i+1]))
+        }
+    }
+    Ok(result)
+}
+
 pub fn get(params: OpParams, name: &str, pw: &str) -> Result<GetResponse, String> {
     let mut f = match open(params.testing) {
         Ok(v) => v,
@@ -299,7 +319,7 @@ mod tests {
 
     impl Drop for Cleanup {
         fn drop(&mut self) {
-            purge(OpParams{testing: true, custom_path: None}).expect("cleaning up");
+            purge(OpParams{testing: true, custom_path: None}).expect("cleaning up")
         }
     }
 
@@ -320,17 +340,17 @@ mod tests {
     }
 
     #[test]
-    fn bootstrap_write() {
+    fn test_file() {
         let _c = Cleanup{};
 
         let master_password = "my_master_pw";
         bootstrap(OpParams{testing: true, custom_path: None}, master_password).expect("bootstrapping");
 
+        let mut names = vec![];
 
         let name = "twitter".to_string();
         let user = "user@mail.com";
         let password = "password";
-        println!("{}", resource::Instance{name: name.clone(), user: user.to_string(), password: password.to_string()}.to_string());
         write(
             OpParams{testing: true, custom_path: None},
             master_password,
@@ -345,5 +365,27 @@ mod tests {
         assert_eq!(name, result.instance.name);
         assert_eq!(user, result.instance.user);
         assert_eq!(password, result.instance.password);
+
+        names.push(name);
+        for i in 0..100 {
+            let name = format!("{}-name", i);
+            let user = format!("{}-user", i);
+            let password = format!("{}-password", i);
+            write(
+                OpParams{testing: true, custom_path: None},
+                master_password,
+                resource::Instance{
+                    name: name.clone(),
+                    user,
+                    password,
+                },
+            ).expect("writing");
+            names.push(name);
+        }
+
+        let result = list(OpParams{testing:true, custom_path: None}, master_password).expect("listing");
+        for v in result {
+            assert!(names.contains(&v))
+        }
     }
 }
