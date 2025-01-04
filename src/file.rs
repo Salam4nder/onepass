@@ -193,7 +193,6 @@ pub fn get(
     let (user, password): (String, String);
     let lines: Vec<&str> = decrypted_content.lines().collect();
     for (i, _) in lines.iter().enumerate() {
-        println!("{}", lines[i]);
         if lines[i] == input::RESERVED_RESOURCE && lines[i+1] == name {
             if let (Some(next), Some(next_next)) = (lines.get(i + 2), lines.get(i + 3)) {
                 let mut copied = true;
@@ -475,7 +474,7 @@ mod tests {
                 password: password.to_string(),
             },
         ).expect("writing");
-        let result = get(Some(t_path), &name, master_password).expect("getting");
+        let result = get(Some(t_path), master_password, &name).expect("getting");
 
         assert_eq!(name, result.resource.name);
         assert_eq!(user, result.resource.user);
@@ -535,7 +534,7 @@ mod tests {
                 password: password.to_string(),
             },
         ).expect("writing");
-        let result = get(Some(t_path), &name, master_password).expect("getting");
+        let result = get(Some(t_path), master_password, &name).expect("getting");
         assert_eq!(name, result.resource.name);
         assert_eq!(user, result.resource.user);
         assert_eq!(password, result.resource.password);
@@ -544,7 +543,7 @@ mod tests {
         if let Err(err) = update(Some(t_path), master_password, &name, resource::NAME, new_val) {
             panic!("updating: {}", err)
         }
-        let result = get(Some(t_path), &new_val, master_password).expect("getting");
+        let result = get(Some(t_path), master_password, &new_val).expect("getting");
         assert_eq!(new_val, result.resource.name);
     }
 
@@ -568,7 +567,7 @@ mod tests {
                 password: password.to_string(),
             },
         ).expect("writing");
-        let result = get(Some(t_path), &name, master_password).expect("getting");
+        let result = get(Some(t_path), master_password, &name).expect("getting");
         if let Err(err) = delete(Some(t_path), master_password, &result.resource.name) {
             panic!("{}", err)
         }

@@ -72,7 +72,7 @@ pub fn get(args: Vec<String>) -> Result<(), String> {
     }
     let pw = input::master_password()?;
 
-    let resp = file::get(None, res, &pw)?;
+    let resp = file::get(None, &pw, res)?;
     println!("username: {}", resp.resource.user);
     if !resp.copied {
         println!("printing password, make sure to copy it and clear your terminal...");
