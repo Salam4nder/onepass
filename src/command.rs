@@ -12,6 +12,7 @@ pub enum Kind {
     Get,
     Del,
     Init,
+    Help,
     List,
     Purge,
     Update,
@@ -25,6 +26,7 @@ impl Kind {
             "get"     => return Some(Kind::Get),
             "del"     => return Some(Kind::Del),
             "init"    => return Some(Kind::Init),
+            "help"    => return Some(Kind::Help),
             "list"    => return Some(Kind::List),
             "purge"   => return Some(Kind::Purge),
             "update"  => return Some(Kind::Update),
@@ -64,7 +66,7 @@ pub fn get(args: Vec<String>) -> Result<(), String> {
         return Err(text::MSG_NOT_SETUP.to_string());
     }
     if args.len() < 3 {
-        return Err(text::MSG_GET.to_string());
+        return Err(text::MSG_COMMAND_GET.to_string());
     }
     let res = &args[2];
     if input::is_reserved(res) {
@@ -119,7 +121,7 @@ pub fn update(stdin: &mut Stdin, args: Vec<String>) -> Result<(), String> {
         return Err(text::MSG_NOT_SETUP.to_string());
     }
     if args.len() < 3 {
-        return Err(text::MSG_GET.to_string());
+        return Err(text::MSG_COMMAND_UPDATE.to_string());
     }
     let res = &args[2];
     if input::is_reserved(res) {
@@ -138,7 +140,7 @@ pub fn del(args: Vec<String>) -> Result<(), String> {
         return Err(text::MSG_NOT_SETUP.to_string());
     }
     if args.len() < 3 {
-        return Err(text::MSG_GET.to_string());
+        return Err(text::MSG_COMMAND_DEL.to_string());
     }
     let res = &args[2];
     if input::is_reserved(res) {
@@ -149,4 +151,21 @@ pub fn del(args: Vec<String>) -> Result<(), String> {
 
     DONE.store(true, Ordering::Relaxed);
     Ok(())
+}
+
+pub fn help(args: Vec<String>) -> String {
+    if args.len() != 3 {
+        return text::MSG_HELP.to_string()
+    };
+
+    if let Some(command) = Kind::from_string(&args[2]) {
+        match command {
+            Kind::Get    => return text::MSG_COMMAND_GET.to_string(),
+            Kind::Del    => return text::MSG_COMMAND_DEL.to_string(),
+            Kind::Update => return text::MSG_COMMAND_UPDATE.to_string(),
+                    _    => return text::MSG_HELP.to_string()
+        }
+    } else {
+        return text::MSG_HELP.to_string()
+    }
 }

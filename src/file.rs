@@ -386,7 +386,14 @@ pub fn decrypt(
     };
     let plaintext = match cipher.decrypt(&nonce, content.as_ref()){
         Ok(v) => v,
-        Err(err) => return Err(err.to_string()),
+        Err(err) => {
+            let err_str = err.to_string();
+            if err_str == "aead::Error" {
+                return Err(String::from("incorrect password"))
+            } else {
+                return Err(err_str)
+            }
+        }
     };
     match std::str::from_utf8(&plaintext) {
         Ok(v) => return Ok(v.to_string()),

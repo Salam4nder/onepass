@@ -7,12 +7,11 @@ mod password;
 
 use std::env;
 use std::sync::atomic::Ordering;
+use ctrlc;
+use command::Kind;
 
 extern crate clipboard;
 extern crate rpassword;
-
-use ctrlc;
-use command::Kind;
 
 fn main() {
     ctrlc::set_handler(move || {
@@ -35,7 +34,7 @@ fn main() {
 
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
-        println!("{}", text::COMMAND_MSG);
+        println!("{}", text::MSG_HELP);
         std::process::exit(0);
     }
     let command_string = &args[1];
@@ -43,7 +42,7 @@ fn main() {
     let cmd = match command::Kind::from_string(command_string.as_str()) {
         Some(v) => v,
         None => {
-            println!("{}", text::COMMAND_MSG);
+            println!("{}", text::MSG_HELP);
             std::process::exit(1);
         },
     };
@@ -86,5 +85,8 @@ fn main() {
                println!("{}", &err);
             };
        },
+        Kind::Help => {
+            println!("{}", command::help(args));
+        },
     }
 }
