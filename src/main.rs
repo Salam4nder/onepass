@@ -47,11 +47,6 @@ fn main() {
         },
     };
     match cmd {
-        Kind::Init =>  {
-            if let Err(err) = command::init() {
-               println!("{}", &err);
-            };
-        },
         Kind::New => {
             if let Err(err) = command::new(&mut stdin) {
                println!("{}", &err);

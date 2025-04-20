@@ -132,6 +132,9 @@ pub fn update(
     if target_idx == 0 {
         return Err("resource not found".to_string())
     }
+    for v in &data[..] {
+        println!("{}", v);
+    }
     let new_nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
     let encrypted_content = encrypt(password, &data.join("\n"), new_nonce)?;
     let mut truncated_file = match open_truncate(custom) {
@@ -529,14 +532,14 @@ mod tests {
         let master_password = "my_master_pw";
         bootstrap(Some(t_path), master_password).expect("bootstrapping");
 
-        let name = "twitter".to_string();
+        let name = "twitter";
         let user = "user@mail.com";
         let password = "password";
         write(
             Some(t_path),
             master_password,
             resource::Instance{
-                name: name.clone(),
+                name: name.to_string(),
                 user: user.to_string(),
                 password: password.to_string(),
             },
@@ -552,6 +555,7 @@ mod tests {
         }
         let result = get(Some(t_path), master_password, &new_val).expect("getting");
         assert_eq!(new_val, result.resource.name);
+        assert_eq!(password, result.resource.password);
     }
 
     #[test]fn test_del() {

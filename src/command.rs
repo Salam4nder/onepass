@@ -11,7 +11,6 @@ pub enum Kind {
     New,
     Get,
     Del,
-    Init,
     Help,
     List,
     Purge,
@@ -25,7 +24,6 @@ impl Kind {
             "new"     => return Some(Kind::New),
             "get"     => return Some(Kind::Get),
             "del"     => return Some(Kind::Del),
-            "init"    => return Some(Kind::Init),
             "help"    => return Some(Kind::Help),
             "list"    => return Some(Kind::List),
             "purge"   => return Some(Kind::Purge),
@@ -37,23 +35,28 @@ impl Kind {
 }
 
 /// Initialize the onepass engine by creating the needed directory and file.
-pub fn init() -> Result<(), String> {
+/// Returns the inputted master password.
+pub fn init() -> Result<String, String> {
     if file::exists(None) {
-        return Err(text::MSG_SETUP.to_string())
+        return Err("file already initialised".to_string())
     }
 
     let pw = input::master_password()?;
     file::bootstrap(None, &pw)?;
+    println!("{}", text::MSG_SETUP);
 
     DONE.store(true, Ordering::Relaxed);
-    Ok(())
+    Ok(pw)
 }
 
 pub fn new(stdin: &mut Stdin) -> Result<(), String> {
+    let pw: String;
     if !file::exists(None) {
-        return Err(text::MSG_NOT_SETUP.to_string())
+        pw = init()?
+    } else {
+        pw = input::master_password()?;
     }
-    let pw = input::master_password()?;
+
     let res = input::resource(stdin)?;
     file::write(None, &pw, res)?;
 
@@ -62,17 +65,21 @@ pub fn new(stdin: &mut Stdin) -> Result<(), String> {
 }
 
 pub fn get(args: Vec<String>) -> Result<(), String> {
-    if !file::exists(None) {
-        return Err(text::MSG_NOT_SETUP.to_string());
-    }
     if args.len() < 3 {
         return Err(text::MSG_COMMAND_GET.to_string());
     }
+
+    let pw: String;
+    if !file::exists(None) {
+        pw = init()?
+    } else {
+        pw = input::master_password()?;
+    }
+
     let res = &args[2];
     if input::is_reserved(res) {
         return Err("use of reserved keyword".to_string());
     }
-    let pw = input::master_password()?;
 
     let resp = file::get(None, &pw, res)?;
     println!("username: {}", resp.resource.user);
@@ -88,10 +95,13 @@ pub fn get(args: Vec<String>) -> Result<(), String> {
 }
 
 pub fn list() -> Result<(), String> {
+    let pw: String;
     if !file::exists(None) {
-        return Err(text::MSG_NOT_SETUP.to_string());
+        pw = init()?
+    } else {
+        pw = input::master_password()?;
     }
-    let pw = input::master_password()?;
+
     let result = file::list(None, &pw)?;
     if result.len() < 1 {
         println!("no saved resources");
@@ -117,37 +127,45 @@ pub fn suggest() -> String {
 }
 
 pub fn update(stdin: &mut Stdin, args: Vec<String>) -> Result<(), String> {
-    if !file::exists(None) {
-        return Err(text::MSG_NOT_SETUP.to_string());
-    }
     if args.len() < 3 {
         return Err(text::MSG_COMMAND_UPDATE.to_string());
     }
+
+    let pw: String;
+    if !file::exists(None) {
+        pw = init()?
+    } else {
+        pw = input::master_password()?;
+    }
+
     let res = &args[2];
     if input::is_reserved(res) {
         return Err("use of reserved keyword".to_string());
     }
-    let password = input::master_password()?;
     let (key, val) = input::update_resource(stdin)?;
-    file::update(None, &password, res, &key, &val)?;
+    file::update(None, &pw, res, &key, &val)?;
 
     DONE.store(true, Ordering::Relaxed);
     Ok(())
 }
 
 pub fn del(args: Vec<String>) -> Result<(), String> {
-    if !file::exists(None) {
-        return Err(text::MSG_NOT_SETUP.to_string());
-    }
     if args.len() < 3 {
         return Err(text::MSG_COMMAND_DEL.to_string());
     }
+
+    let pw: String;
+    if !file::exists(None) {
+        pw = init()?
+    } else {
+        pw = input::master_password()?;
+    }
+
     let res = &args[2];
     if input::is_reserved(res) {
         return Err("use of reserved keyword".to_string());
     }
-    let password = input::master_password()?;
-    file::delete(None, &password, &res)?;
+    file::delete(None, &pw, &res)?;
 
     DONE.store(true, Ordering::Relaxed);
     Ok(())
