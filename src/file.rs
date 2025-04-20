@@ -257,7 +257,7 @@ pub fn write(custom: Option<&str>, password: &str, r: resource::Instance) -> Res
 }
 
 pub fn bootstrap(custom: Option<&str>, password: &str) -> Result<(), String> {
-    let mut f = match create(custom) {
+    let mut f = match initialize(custom) {
         Ok(v) => v,
         Err(err) => return Err(err.to_string()) 
     };
@@ -293,9 +293,9 @@ pub fn file_path(custom: Option<&str>) -> PathBuf {
     path
 }
 
-/// Create the needed file to init the engine.
+/// Initialize the needed file to init the engine.
 /// The path can be adjusted with parameters.
-pub fn create(custom: Option<&str>) -> io::Result<std::fs::File> {
+pub fn initialize(custom: Option<&str>) -> io::Result<std::fs::File> {
     let path = file_path(custom);
 
     if let Some(parent_dir) = path.parent() {
@@ -558,7 +558,8 @@ mod tests {
         assert_eq!(password, result.resource.password);
     }
 
-    #[test]fn test_del() {
+    #[test]
+    fn test_del() {
         let id = Uuid::new_v4();
         let cleanup = Cleanup{file_name: id.to_string()};
         let t_path = &cleanup.path();
