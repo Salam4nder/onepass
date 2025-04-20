@@ -1,9 +1,14 @@
+use std::io::Stdin;
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use crate::text;
 use crate::file;
 use crate::input;
+use crate::resource;
 use crate::password;
-use std::io::Stdin;
-use std::sync::atomic::{AtomicBool, Ordering};
+
+use clipboard::ClipboardProvider;
+use clipboard::ClipboardContext;
 
 pub static DONE: AtomicBool = AtomicBool::new(false);
 
@@ -76,18 +81,36 @@ pub fn get(args: Vec<String>) -> Result<(), String> {
         pw = input::master_password()?;
     }
 
-    let res = &args[2];
-    if input::is_reserved(res) {
+    let target = &args[2];
+    if input::is_reserved(target) {
         return Err("use of reserved keyword".to_string());
     }
 
-    let resp = file::get(None, &pw, res)?;
-    println!("username: {}", resp.resource.user);
-    if !resp.copied {
-        println!("printing password, make sure to copy it and clear your terminal...");
-        println!("{}", resp.resource.password);
+    let mut f = match file::open(None) {
+        Ok(v) => v,
+        Err(err) => return Err(err.to_string())
+    };
+    let data = match file::extract_data(&mut f) {
+        Ok(v) => v,
+        Err(err) => return Err(err.to_string())
+    };
+    let decrypted_content = file::decrypt(
+        &pw,
+        data.buf,
+        data.nonce,
+    )?;
+
+    let got = resource::get(target, decrypted_content)?;
+    println!("Username: {}", got.user);
+    let mut ctx: ClipboardContext = match ClipboardProvider::new() {
+        Ok(v) => v,
+        Err(err) => return Err(err.to_string()),
+    };
+    if let Err(_) = ctx.set_contents(got.password.to_owned()) {
+        println!("Password: {}", got.password);
+        println!("Don't forget to clear your terminal.");
     } else {
-        println!("password copied to clipboard");
+        println!("Password copied to clipboard");
     };
 
     DONE.store(true, Ordering::Relaxed);
