@@ -159,3 +159,26 @@ mod tests {
         assert_eq!(long_result.user, target_user);
         assert_eq!(long_result.password, target_password);
     }
+
+    #[test]
+    #[should_panic]
+    fn test_get_panics_on_unfinished_resource() {
+        let content = format!("resource\n{}\n{}\n", "name", "password");
+        get("twitter", &content).expect("getting");
+    }
+
+    #[test]
+    fn test_update_name() {
+        let new_value = "website";
+        let content = seed(3);
+        let updated = update(UpdateInput{
+            key: Key::Name,
+            val: String::from(new_value),
+            name: String::from("name2"),
+            content
+        }).expect("updating");
+        let lines: Vec<&str> = updated.lines().collect();
+        assert_eq!(lines[9], new_value);
+        assert_eq!(lines[10], "user2");
+        assert_eq!(lines[11], "password2");
+    }
