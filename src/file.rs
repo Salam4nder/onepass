@@ -15,59 +15,6 @@ use chacha20poly1305::{
 };
 
 
-pub fn get(
-    custom: Option<&str>,
-    password: &str,
-    name: &str,
-) -> Result<GetResponse, String> {
-    let mut f = match open(custom) {
-        Ok(v) => v,
-        Err(err) => return Err(err.to_string())
-    };
-    let data = match extract_data(&mut f) {
-        Ok(v) => v,
-        Err(err) => return Err(err.to_string())
-    };
-    let decrypted_content = decrypt(
-        password,
-        data.buf,
-        data.nonce,
-    )?;
-
-    let mut ctx: ClipboardContext = match ClipboardProvider::new() {
-        Ok(v) => v,
-        Err(err) => return Err(err.to_string()),
-    };
-    let (user, password): (String, String);
-    let lines: Vec<&str> = decrypted_content.lines().collect();
-    for (i, _) in lines.iter().enumerate() {
-        if lines[i] == input::RESERVED_RESOURCE && lines[i+1] == name {
-            if let (Some(next), Some(next_next)) = (lines.get(i + 2), lines.get(i + 3)) {
-                let mut copied = true;
-                user = next.to_string();
-                password = next_next.to_string();
-                if let Err(err) = ctx.set_contents(password.to_owned()) {
-                    println!("copying to clipboard: {}", err);
-                    copied = false;
-                };
-                return Ok(
-                    GetResponse {
-                        resource: resource::Instance{
-                            name: name.to_string(),
-                            user,
-                            password,
-                        },
-                        copied,
-                    }
-                );
-            } else {
-                return Err("uncomplete resource is less than 3 lines".to_string());
-            }
-        }
-    }
-    return Err("resource not found".to_string())
-}
-
 pub fn write(custom: Option<&str>, password: &str, r: resource::Instance) -> Result<(), String> {
     let mut f = match open(custom) {
         Ok(v) => v,
