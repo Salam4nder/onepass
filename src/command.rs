@@ -271,3 +271,70 @@ pub fn help(args: Vec<String>) -> String {
         return text::MSG_HELP.to_string()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use core::panic;
+
+    use super::*;
+    use uuid::Uuid;
+
+    struct Cleanup {file_name: String}
+
+    impl Cleanup {
+        fn path(&self) -> String {
+            format!("{}/{}.txt", file::DEFAULT_DIR_NAME, self.file_name).as_str().to_string()
+        }
+    }
+
+    impl Drop for Cleanup {
+        fn drop(&mut self) {
+            let file_path = format!("{}/{}.txt", file::DEFAULT_DIR_NAME, self.file_name);
+            file::purge(Some(&file_path)).expect("cleaning up");
+        }
+    }
+
+
+    fn seed(path: &str, amount: u8) -> String {
+        let password = password::suggest(16);
+
+        for i in 0..amount {
+            if let Err(err) = new_resource(Some(path), &password, resource::Instance{
+                name: String::from(format!("name{}", i)),
+                user: String::from(format!("user{}", i)),
+                password: String::from(format!("password{}", i)),
+            }) {
+                panic!("seeding: {}", err)
+            }
+        }
+
+        password.to_string()
+    }
+
+    fn count_lines(path: &str, password: &str) -> Result<usize, String> {
+        let mut count: usize = 0;
+        let content = file::decrypt(Some(path), &password)?;
+        for _ in content.lines().into_iter() {
+            count += 1;
+        }
+        Ok(count)
+    }
+
+    #[test]
+    fn test_get_resource() {
+        let id = Uuid::new_v4();
+        let cleanup = Cleanup{file_name: id.to_string()};
+        let t_path = &cleanup.path();
+        file::create(Some(t_path)).expect("creating");
+
+        let resource_name = "name3";
+        let resource_user = "user3";
+        let resource_password = "password3";
+        let master_password = seed(t_path, 5);
+        let got = get_resource(Some(&t_path), &master_password, resource_name).
+            expect("getting resource");
+
+        assert_eq!(resource_name, got.name);
+        assert_eq!(resource_user, got.user);
+        assert_eq!(resource_password, got.password);
+    }
