@@ -1,6 +1,11 @@
 # onepass
-light terminal password manager.
+Light, ergonomic and portable terminal password manager.
+Get to your passwords super quick and hassle free!
 
+## Extremely light
+Operates on a single encrypted file.
 
-https://github.com/user-attachments/assets/3fffe305-b565-4bc6-bfbd-50a8a2680649
+## Portable
+Want to have your passwords on a portable disk? Just specify the path!
+onepass can even spread itself to other directories with the `spread` command. 
 
