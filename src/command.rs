@@ -1,4 +1,5 @@
 use std::io::Stdin;
+use std::os::unix::fs::MetadataExt;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::text;
@@ -39,33 +40,49 @@ impl Kind {
     }
 }
 
-/// Initialize the onepass engine by creating the needed directory and file.
-/// Returns the inputted master password.
-pub fn init() -> Result<String, String> {
-    if file::exists(None) {
-        return Err("file already initialised".to_string())
-    }
+/// Create a new resource and append it to the file.
+pub fn new(custom_path: Option<&str>, stdin: &mut Stdin) -> Result<(), String> {
+    if !file::exists(custom_path) {
+        if let Err(err) =  file::create(custom_path) {
+            return Err(err.to_string())
+        }
+    } 
 
-    let pw = input::master_password()?;
-    file::bootstrap(None, &pw)?;
-    println!("{}", text::MSG_SETUP);
+    let resource = input::resource(stdin)?;
+    let password = input::master_password()?;
+    new_resource(custom_path, &password, resource)?;
 
     DONE.store(true, Ordering::Relaxed);
-    Ok(pw)
+    Ok(())
 }
 
-pub fn new(stdin: &mut Stdin) -> Result<(), String> {
-    let pw: String;
-    if !file::exists(None) {
-        pw = init()?
+fn new_resource(
+    custom_path: Option<&str>,
+    password: &str,
+    resource: resource::Instance,
+) -> Result<(), String> {
+    let path = file::path(custom_path);
+    let metadata = match std::fs::metadata(path) {
+        Ok(v) => v, 
+        Err(err) => return Err(err.to_string())
+    };
+
+    let mut content = String::new();
+    if metadata.size() > 0 {
+        content = file::decrypt(custom_path, password)?;
+        let mut lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
+        for line in &lines {
+            if line.trim() == resource.name.trim() {
+                return Err("Resource already exists".to_string())
+            }
+        }
+        lines.push(resource.to_string());
+        content = lines.join("\n");
     } else {
-        pw = input::master_password()?;
+        content.push_str(resource.to_string().as_str());
     }
 
-    let res = input::resource(stdin)?;
-    file::write(None, &pw, res)?;
-
-    DONE.store(true, Ordering::Relaxed);
+    file::encrypt(custom_path, &password, content)?;
     Ok(())
 }
 
