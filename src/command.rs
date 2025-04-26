@@ -338,6 +338,7 @@ mod tests {
         assert_eq!(resource_user, got.user);
         assert_eq!(resource_password, got.password);
     }
+
     #[test]
     fn test_list_resources() {
         let id = Uuid::new_v4();
@@ -348,4 +349,74 @@ mod tests {
         let master_password = seed(t_path, 5);
         let list = list_resources(Some(t_path), &master_password).expect("listing");
         assert_eq!(5, list.len());
+    }
+
+    #[test]
+    fn test_update_resource() {
+        let id = Uuid::new_v4();
+        let cleanup = Cleanup{file_name: id.to_string()};
+        let t_path = &cleanup.path();
+        file::create(Some(t_path)).expect("creating");
+        let master_password = seed(t_path, 5);
+
+        let new_name = "new_name";
+        let new_user = "new_user";
+        let new_password = "new_password";
+
+        update_resource(
+            Some(t_path),
+            &master_password,
+            "name0".to_string(),
+            resource::Key::Name,
+            new_name.to_string(),
+        ).expect("updating name");
+
+        let list = list_resources(Some(t_path), &master_password).
+            expect("listing");
+        assert_eq!(5, list.len());
+        assert_eq!(5 * 4, count_lines(t_path, &master_password).expect("counting lintes"));
+
+        let got = get_resource(Some(t_path), &master_password, new_name).
+            expect("getting name");
+        assert_eq!(new_name, got.name);
+        assert_eq!("user0", got.user);
+        assert_eq!("password0", got.password);
+
+        update_resource(
+            Some(t_path),
+            &master_password,
+            "name1".to_string(),
+            resource::Key::User,
+            new_user.to_string(),
+        ).expect("updating user");
+
+        let list = list_resources(Some(t_path), &master_password).
+            expect("listing");
+        assert_eq!(5, list.len());
+        assert_eq!(5 * 4, count_lines(t_path, &master_password).expect("counting lintes"));
+
+        let got = get_resource(Some(t_path), &master_password, "name1").
+            expect("getting name");
+        assert_eq!("name1", got.name);
+        assert_eq!(new_user, got.user);
+        assert_eq!("password1", got.password);
+
+        update_resource(
+            Some(t_path),
+            &master_password,
+            "name2".to_string(),
+            resource::Key::Password,
+            new_password.to_string(),
+        ).expect("updating password");
+
+        let list = list_resources(Some(t_path), &master_password).
+            expect("listing");
+        assert_eq!(5, list.len());
+        assert_eq!(5 * 4, count_lines(t_path, &master_password).expect("counting lintes"));
+
+        let got = get_resource(Some(t_path), &master_password, "name2").
+            expect("getting password");
+        assert_eq!("name2", got.name);
+        assert_eq!("user2", got.user);
+        assert_eq!(new_password, got.password);
     }
