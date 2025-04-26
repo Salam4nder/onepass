@@ -15,26 +15,6 @@ use chacha20poly1305::{
 };
 
 
-pub fn list(custom: Option<&str>, password: &str) -> Result<Vec<String>, String> {
-    let mut f = match open(custom) {
-        Ok(v) => v,
-        Err(err) => return Err(err.to_string())
-    };
-    let data = match extract_data(&mut f) {
-        Ok(v) => v,
-        Err(err) => return Err(err.to_string())
-    };
-    let decrypted_content = decrypt(password, data.buf, data.nonce)?;
-    let lines: Vec<&str> = decrypted_content.lines().collect();
-    let mut result: Vec<String> = vec![];
-    for (i, _) in decrypted_content.lines().into_iter().enumerate(){
-        if lines[i] == input::RESERVED_RESOURCE {
-            result.push(String::from(lines[i+1]))
-        }
-    }
-    Ok(result)
-}
-
 pub fn get(
     custom: Option<&str>,
     password: &str,
