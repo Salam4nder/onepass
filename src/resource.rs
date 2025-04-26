@@ -41,3 +41,31 @@ pub fn get(name: &str, content: &str) -> Result<Instance, String> {
     }
     Err("Resource not found".to_string())
 }
+
+pub struct UpdateInput {
+    pub key: Key,
+    pub val: String,
+
+    pub name: String,
+    pub content: String
+}
+
+pub fn update(input: UpdateInput) -> Result<String, String> {
+    let mut target_idx = 1;
+
+    match input.key {
+        Key::Name     => (),
+        Key::User     => target_idx += 1,
+        Key::Password => target_idx += 2,
+    };
+
+    let mut lines: Vec<String> = input.content.lines().map(|s| s.to_string()).collect();
+    for (i, _) in lines.iter().enumerate() {
+        if lines[i] == text::RESERVED_RESOURCE && lines[i+1] == input.name {
+            lines[target_idx + i] = input.val;
+            break;
+        }
+    }
+
+    Ok(lines.join("\n").to_string())
+}
