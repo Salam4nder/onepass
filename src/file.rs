@@ -15,39 +15,6 @@ use chacha20poly1305::{
 };
 
 
-pub fn write(custom: Option<&str>, password: &str, r: resource::Instance) -> Result<(), String> {
-    let mut f = match open(custom) {
-        Ok(v) => v,
-        Err(err) => return Err(err.to_string()) 
-    };
-    let data = match extract_data(&mut f) { 
-        Ok(v) => v,
-        Err(err) => return Err(err.to_string()) 
-    };
-    let mut content = decrypt(password, data.buf, data.nonce)?;
-    for line in content.lines() {
-        if line.trim() == r.name.trim() {
-            return Err("resource already exists".to_string())
-        }
-    }
-
-    let mut truncated = match open_truncate(custom) {
-        Ok(v) => v,
-        Err(err) => return Err(err.to_string()) 
-    };
-    let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
-    if let Err(err) = truncated.write_all(&nonce.to_vec()) {
-        return Err(err.to_string())
-    };
-    content.push_str("\n");
-    content.push_str(&r.to_string());
-    let encrypted = encrypt(password, &content, nonce)?;
-    if let Err(err) = truncated.write_all(&encrypted) {
-        return Err(err.to_string())
-    };
-    Ok(())
-}
-
 pub fn bootstrap(custom: Option<&str>, password: &str) -> Result<(), String> {
     let mut f = match initialize(custom) {
         Ok(v) => v,
