@@ -214,3 +214,19 @@ mod tests {
         assert_eq!(lines[6], "user1");
         assert_eq!(lines[7], new_value);
     }
+
+    #[test]
+    fn test_delete() {
+        let mut content = seed(3);
+        let deleted = delete("name0", content).expect("deleting");
+        let lines: Vec<&str> = deleted.lines().collect();
+        assert_eq!(lines.len(), 8);
+        assert!(!lines.contains(&"name0"));
+        assert!(!lines.contains(&"user0"));
+        assert!(!lines.contains(&"password0"));
+
+        content = seed(3);
+        let not_found = delete("non", content);
+        assert_eq!(not_found.unwrap_err(), "Resource not found");
+    }
+}
