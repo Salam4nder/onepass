@@ -222,24 +222,36 @@ fn update_resource(
 
     Ok(())
 }
+
+pub fn del(custom_path: Option<&str>, args: Vec<String>) -> Result<(), String> {
     if args.len() < 3 {
         return Err(text::MSG_COMMAND_DEL.to_string());
     }
 
-    let pw: String;
-    if !file::exists(None) {
-        pw = init()?
-    } else {
-        pw = input::master_password()?;
+    if !file::exists(custom_path) {
+        return Err(text::MSG_NO_RESOURCES.to_string());
+    } 
+
+    let password = input::master_password()?;
+    let name = &args[2];
+    if input::is_reserved(name) {
+        return Err("Keyword is reserved".to_string());
     }
 
-    let res = &args[2];
-    if input::is_reserved(res) {
-        return Err("use of reserved keyword".to_string());
-    }
-    file::delete(None, &pw, &res)?;
+    delete_resource(custom_path, &password, name)?;
 
     DONE.store(true, Ordering::Relaxed);
+    Ok(())
+}
+
+fn delete_resource(
+    custom_path: Option<&str>,
+    password: &str,
+    name: &str,
+) -> Result<(), String> {
+    let content = file::decrypt(custom_path, &password)?;
+    let deleted = resource::delete(name, content)?;
+    file::encrypt(custom_path, &password, deleted)?;
     Ok(())
 }
 
