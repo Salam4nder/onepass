@@ -15,27 +15,6 @@ use chacha20poly1305::{
 };
 
 
-pub fn bootstrap(custom: Option<&str>, password: &str) -> Result<(), String> {
-    let mut f = match initialize(custom) {
-        Ok(v) => v,
-        Err(err) => return Err(err.to_string()) 
-    };
-
-    let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
-    if let Err(err) = f.write_all(&nonce.to_vec()) {
-        return Err(err.to_string())
-    };
-    let mut content = String::from("\n");
-    content.push_str(DELIMITER);
-    content.push_str("\n");
-
-    let encrypted_content = encrypt(password, &content, nonce)?;
-    if let Err(err) = f.write_all(&encrypted_content) {
-        return Err(err.to_string())
-    };
-    Ok(())
-}
-
 pub fn purge(custom: Option<&str>) -> io::Result<()> {
     std::fs::remove_file(file_path(custom)) 
 }
