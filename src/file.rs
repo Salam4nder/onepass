@@ -1,90 +1,19 @@
 use std::env;
+use std::str;
 use std::fs::File;
 use std::fs::OpenOptions;
+use std::io::SeekFrom;
 use std::path::{Path, PathBuf};
-use std::io::{self, Read, Write};
+use std::io::{self, Read, Write, Seek};
 
 use hmac_sha256;
 use rand::rngs::OsRng;
-use clipboard::ClipboardProvider;
-use clipboard::ClipboardContext;
 use chacha20poly1305::AeadCore;
 use chacha20poly1305::{
     aead::{Aead, KeyInit},
     ChaCha20Poly1305, Nonce,
 };
-use crate::input;
-use crate::resource;
 
-pub const DELIMITER:         &str = "--||--";
-const DEFAULT_DIR_NAME:      &str = ".onepass";
-const DEFAULT_FILE_NAME:     &str = "main.txt";
-
-pub struct GetResponse {
-    pub copied: bool,
-    pub resource: resource::Instance,
-}
-
-pub fn delete(
-    custom: Option<&str>,
-    password: &str,
-    name: &str,
-) -> Result<(), String> {
-    let mut f = match open(custom) {
-        Ok(v) => v,
-        Err(err) => return Err(err.to_string())
-    };
-    let data = match extract_data(&mut f) {
-        Ok(v) => v,
-        Err(err) => return Err(err.to_string())
-    };
-    let decrypted_content = decrypt(
-        password,
-        data.buf,
-        data.nonce,
-    )?;
-
-    let mut data = vec![];
-    let mut found: bool = false;
-    let mut res_idx: usize = 0;
-    let mut user_idx: usize = 0;
-    let mut pass_idx: usize = 0;
-    let lines: Vec<&str> = decrypted_content.lines().collect();
-    for (i, _) in lines.iter().enumerate() {
-        if lines[i] == "\n" {
-            continue
-        }
-        if lines[i] == input::RESERVED_RESOURCE && lines[i+1] == name {
-            found = true;
-            res_idx  = i+1;
-            user_idx = i+2;
-            pass_idx = i+3;
-            continue
-        }
-        if found && i == res_idx || i == user_idx || i == pass_idx {
-            continue
-        } else {
-            data.push(String::from(lines[i]));
-        }
-    }
-    if !found {
-        return Err("resource not found".to_string())
-    }
-    let new_nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
-    let encrypted_content = encrypt(password, &data.join("\n"), new_nonce)?;
-
-    let mut truncated_file = match open_truncate(custom) {
-        Ok(v) => v,
-        Err(err) => return Err(err.to_string()) 
-    };
-    if let Err(err) = truncated_file.write_all(&new_nonce.to_vec()) {
-        return Err(err.to_string())
-    };
-    if let Err(err) = truncated_file.write_all(&encrypted_content) {
-        return Err(err.to_string())
-    };
-    Ok(())
-}
 
 pub fn update(
     custom: Option<&str>,
