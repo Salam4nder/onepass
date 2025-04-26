@@ -86,38 +86,22 @@ fn new_resource(
     Ok(())
 }
 
-pub fn get(args: Vec<String>) -> Result<(), String> {
+pub fn get(custom_path: Option<&str>, args: Vec<String>) -> Result<(), String> {
     if args.len() < 3 {
         return Err(text::MSG_COMMAND_GET.to_string());
     }
 
-    let pw: String;
-    if !file::exists(None) {
-        pw = init()?
-    } else {
-        pw = input::master_password()?;
-    }
+    if !file::exists(custom_path) {
+        return Err(text::MSG_NO_RESOURCES.to_string());
+    } 
 
-    let target = &args[2];
-    if input::is_reserved(target) {
+    let password = input::master_password()?;
+    let resource_name = &args[2];
+    if input::is_reserved(resource_name) {
         return Err("use of reserved keyword".to_string());
     }
 
-    let mut f = match file::open(None) {
-        Ok(v) => v,
-        Err(err) => return Err(err.to_string())
-    };
-    let data = match file::extract_data(&mut f) {
-        Ok(v) => v,
-        Err(err) => return Err(err.to_string())
-    };
-    let decrypted_content = file::decrypt(
-        &pw,
-        data.buf,
-        data.nonce,
-    )?;
-
-    let got = resource::get(target, decrypted_content)?;
+    let got = get_resource(custom_path, &password, resource_name)?;
     println!("Username: {}", got.user);
     let mut ctx: ClipboardContext = match ClipboardProvider::new() {
         Ok(v) => v,
@@ -125,7 +109,7 @@ pub fn get(args: Vec<String>) -> Result<(), String> {
     };
     if let Err(_) = ctx.set_contents(got.password.to_owned()) {
         println!("Password: {}", got.password);
-        println!("Don't forget to clear your terminal.");
+        println!("Don't forget to clear your terminal");
     } else {
         println!("Password copied to clipboard");
     };
@@ -134,25 +118,36 @@ pub fn get(args: Vec<String>) -> Result<(), String> {
     Ok(())
 }
 
-pub fn list() -> Result<(), String> {
-    let pw: String;
-    if !file::exists(None) {
-        pw = init()?
-    } else {
-        pw = input::master_password()?;
-    }
+fn get_resource(
+    custom_path: Option<&str>,
+    password: &str,
+    resource_name: &str,
+) -> Result<resource::Instance, String> {
+    let content = file::decrypt(custom_path, &password)?;
+    let got = resource::get(resource_name, &content)?;
+    Ok(got)
+}
 
-    let result = file::list(None, &pw)?;
+pub fn list(custom_path: Option<&str>) -> Result<(), String> {
+    if !file::exists(custom_path) {
+        return Err(text::MSG_NO_RESOURCES.to_string());
+    } 
+
+    let password = input::master_password()?;
+
+    let result = list_resources(custom_path, &password)?;
     if result.len() < 1 {
-        println!("no saved resources");
+        return Err(text::MSG_NO_RESOURCES.to_string());
     }
     for v in result {
         println!("{}", v);
     }
     DONE.store(true, Ordering::Relaxed);
+
     Ok(())
 }
 
+fn list_resources(custom_path: Option<&str>, password: &str) -> Result<Vec<String>, String> {
 pub fn purge() -> Result<(), String> {
     if let Err(err) = file::purge(None) {
         return Err(err.to_string());
