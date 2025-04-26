@@ -216,99 +216,42 @@ mod tests {
     }
 
     #[test]
-    fn test_list() {
+    fn test_encrypt_decrypt() {
         let id = Uuid::new_v4();
         let cleanup = Cleanup{file_name: id.to_string()};
         let t_path = &cleanup.path();
+        create(Some(t_path)).expect("creating");
 
-        let master_password = "my_master_pw";
-        bootstrap(Some(t_path), master_password).expect("bootstrapping");
+        let content = "content\ndelimiter\nsecret-stuff\n";
+        let pw = "masterPassword";
+        encrypt(Some(t_path), pw, content.to_string()).expect("encrypting");
+        
+        let decrypted_content = decrypt(
+            Some(t_path),
+            pw,
+        ).expect("decrypting");
 
-        let mut names = vec![];
-        for i in 0..100 {
-            let name = format!("{}-name", i);
-            let user = format!("{}-user", i);
-            let password = format!("{}-password", i);
-            write(
-                Some(t_path),
-                master_password,
-                resource::Instance{
-                    name: name.clone(),
-                    user,
-                    password,
-                },
-            ).expect("writing");
-            names.push(name);
-        }
-
-        let result = list(Some(t_path), master_password).expect("listing");
-        for v in result {
-            assert!(names.contains(&v))
-        }
+        assert_eq!(content, decrypted_content);
     }
 
     #[test]
-    fn test_update() {
-        let id = Uuid::new_v4();
-        let cleanup = Cleanup{file_name: id.to_string()};
-        let t_path = &cleanup.path();
-
-        let master_password = "my_master_pw";
-        bootstrap(Some(t_path), master_password).expect("bootstrapping");
-
-        let name = "twitter";
-        let user = "user@mail.com";
-        let password = "password";
-        write(
-            Some(t_path),
-            master_password,
-            resource::Instance{
-                name: name.to_string(),
-                user: user.to_string(),
-                password: password.to_string(),
-            },
-        ).expect("writing");
-        let result = get(Some(t_path), master_password, &name).expect("getting");
-        assert_eq!(name, result.resource.name);
-        assert_eq!(user, result.resource.user);
-        assert_eq!(password, result.resource.password);
-
-        let new_val: &str = "epic";
-        if let Err(err) = update(Some(t_path), master_password, &name, resource::NAME, new_val) {
-            panic!("updating: {}", err)
-        }
-        let result = get(Some(t_path), master_password, &new_val).expect("getting");
-        assert_eq!(new_val, result.resource.name);
-        assert_eq!(password, result.resource.password);
+    fn test_path() {
+        let home = env::var("HOME").expect("home path");
+        let mut expected_path = PathBuf::from(home);
+        let custom_path = "some/path";
+        expected_path.push(custom_path);
+        let buf = path(Some(custom_path));
+        assert_eq!(buf, expected_path);
     }
 
     #[test]
-    fn test_del() {
+    fn test_exists() {
         let id = Uuid::new_v4();
         let cleanup = Cleanup{file_name: id.to_string()};
         let t_path = &cleanup.path();
 
-        let master_password = "my_master_pw";
-        bootstrap(Some(t_path), master_password).expect("bootstrapping");
-
-        let name = "twitter".to_string();
-        let user = "user@mail.com";
-        let password = "password";
-        write(
-            Some(t_path),
-            master_password,
-            resource::Instance{
-                name: name.clone(),
-                user: user.to_string(),
-                password: password.to_string(),
-            },
-        ).expect("writing");
-        let result = get(Some(t_path), master_password, &name).expect("getting");
-        if let Err(err) = delete(Some(t_path), master_password, &result.resource.name) {
-            panic!("{}", err)
-        }
-
-        let l = list(Some(t_path), master_password).expect("listing");
-        assert_eq!(0, l.len())
+        assert!(!exists(Some(t_path)));
+        create(Some(t_path)).expect("creating");
+        assert!(exists(Some(t_path)));
     }
 }
