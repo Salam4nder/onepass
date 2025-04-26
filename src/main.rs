@@ -38,6 +38,19 @@ fn main() {
     }
     let command_string = &args[1];
 
+    let mut path: Option<String> = None;
+    for i in 2..args.len() {
+        if args[i] == "-l" || args[i] == "--location" {
+            match args.get(i+1) {
+                None => {
+                    println!("{}", text::MSG_HELP);
+                    std::process::exit(0);
+                },
+                Some(v) => path = Some(v.to_string())
+            }
+        }
+    }
+
     let cmd = match command::Kind::from_string(command_string.as_str()) {
         Some(v) => v,
         None => {
@@ -47,17 +60,17 @@ fn main() {
     };
     match cmd {
         Kind::New => {
-            if let Err(err) = command::new(None, &mut stdin) {
+            if let Err(err) = command::new(path.as_deref(), &mut stdin) {
                println!("{}", &err);
             };
         },
         Kind::Get => {
-            if let Err(err) = command::get(None, args) {
+            if let Err(err) = command::get(path.as_deref(), args) {
                println!("{}", &err);
             };
         },
         Kind::Del => {
-            if let Err(err) = command::del(None, args) {
+            if let Err(err) = command::del(path.as_deref(), args) {
                println!("{}", &err);
             };
         },
@@ -65,7 +78,7 @@ fn main() {
             println!("{}", command::suggest());
         },
         Kind::List => {
-            if let Err(err) = command::list(None) {
+            if let Err(err) = command::list(path.as_deref()) {
                println!("{}", &err);
             };
         },
@@ -75,7 +88,7 @@ fn main() {
             };
        },
         Kind::Update => {
-            if let Err(err) = command::update(None, args, &mut stdin) {
+            if let Err(err) = command::update(path.as_deref(), args, &mut stdin) {
                println!("{}", &err);
             };
        },
