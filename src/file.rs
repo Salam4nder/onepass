@@ -160,6 +160,17 @@ fn extract_data(f: &mut File) -> Result<Data, io::Error> {
 
     Ok(Data { nonce, buf })
 }
+
+fn open(custom: Option<&str>) -> io::Result<std::fs::File> {
+    let path = path(custom);
+
+    let file = OpenOptions::new()
+        .read(true)
+        .open(&path)?;
+
+    Ok(file)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
