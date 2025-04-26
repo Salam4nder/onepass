@@ -69,3 +69,37 @@ pub fn update(input: UpdateInput) -> Result<String, String> {
 
     Ok(lines.join("\n").to_string())
 }
+
+pub fn delete(name: &str, content: String) -> Result<String, String> {
+    let mut name_idx = 0;
+    let mut user_idx = 0;
+    let mut pw_idx = 0;
+    let mut result: Vec<&str> = vec![];
+
+    let lines: Vec<&str> = content.lines().collect();
+    for (i, v) in lines.iter().enumerate() {
+        if lines[i] == "\n" { continue }
+        if lines[i] == text::RESERVED_RESOURCE && lines[i+1] == name {
+            name_idx = i + 1;
+            user_idx = i + 2;
+            pw_idx = i + 3;
+            continue
+        }
+        if i == name_idx && name_idx != 0 {
+            continue
+        }
+        if i == user_idx && user_idx != 0 {
+            continue
+        }
+        if i == pw_idx && pw_idx != 0 {
+            continue
+        }
+        result.push(v);
+    }
+
+    if name_idx == 0 {
+        return Err("Resource not found".to_string())
+    }
+
+    Ok(result.join("\n").to_string())
+}
