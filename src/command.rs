@@ -338,3 +338,14 @@ mod tests {
         assert_eq!(resource_user, got.user);
         assert_eq!(resource_password, got.password);
     }
+    #[test]
+    fn test_list_resources() {
+        let id = Uuid::new_v4();
+        let cleanup = Cleanup{file_name: id.to_string()};
+        let t_path = &cleanup.path();
+        file::create(Some(t_path)).expect("creating");
+
+        let master_password = seed(t_path, 5);
+        let list = list_resources(Some(t_path), &master_password).expect("listing");
+        assert_eq!(5, list.len());
+    }
