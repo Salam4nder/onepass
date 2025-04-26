@@ -131,6 +131,35 @@ pub fn decrypt(path: Option<&str>, password: &str) -> Result<String, String> {
     };
 }
 
+pub fn path(custom_path: Option<&str>) -> PathBuf {
+    let home_dir = env::var("HOME").unwrap();
+    let mut path = PathBuf::from(home_dir);
+    if let Some(c) = custom_path {
+        path.push(c);
+    } else {
+        path.push(DEFAULT_DIR_NAME);
+        path.push(DEFAULT_FILE_NAME);
+    }
+    path
+}
+
+pub struct Data {
+    pub nonce: Nonce,
+    pub buf: Vec<u8>,
+}
+
+fn extract_data(f: &mut File) -> Result<Data, io::Error> {
+    let mut nonce_buf = [0u8; 12];
+    f.read_exact(&mut nonce_buf)?;
+
+    let nonce = Nonce::from_slice(&nonce_buf).clone();
+
+    f.seek(SeekFrom::Start(12))?;
+    let mut buf = Vec::new();
+    f.read_to_end(&mut buf)?;
+
+    Ok(Data { nonce, buf })
+}
 #[cfg(test)]
 mod tests {
     use super::*;
