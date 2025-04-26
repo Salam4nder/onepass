@@ -148,6 +148,19 @@ pub fn list(custom_path: Option<&str>) -> Result<(), String> {
 }
 
 fn list_resources(custom_path: Option<&str>, password: &str) -> Result<Vec<String>, String> {
+    let content = file::decrypt(custom_path, &password)?;
+
+    let mut result: Vec<String> = vec![];
+    let lines: Vec<&str> = content.lines().collect();
+    for (i, v) in lines.iter().enumerate() {
+        if *v == text::RESERVED_RESOURCE {
+            result.push(lines[i+1].to_string());
+        }
+    }
+
+    Ok(result)
+}
+
 pub fn purge() -> Result<(), String> {
     if let Err(err) = file::purge(None) {
         return Err(err.to_string());
@@ -158,33 +171,57 @@ pub fn purge() -> Result<(), String> {
 
 pub fn suggest() -> String {
     DONE.store(true, Ordering::Relaxed);
-    password::suggest(14)
+    password::suggest(16)
 }
 
-pub fn update(stdin: &mut Stdin, args: Vec<String>) -> Result<(), String> {
+pub fn update(
+    custom_path: Option<&str>,
+    args: Vec<String>,
+    stdin: &mut Stdin,
+) -> Result<(), String> {
+    if !file::exists(custom_path) {
+        return Err(text::MSG_NO_RESOURCES.to_string());
+    } 
+
     if args.len() < 3 {
         return Err(text::MSG_COMMAND_UPDATE.to_string());
     }
 
-    let pw: String;
-    if !file::exists(None) {
-        pw = init()?
-    } else {
-        pw = input::master_password()?;
-    }
-
-    let res = &args[2];
-    if input::is_reserved(res) {
+    let name = args[2].clone();
+    if input::is_reserved(&name) {
         return Err("use of reserved keyword".to_string());
     }
+    let password = input::master_password()?;
     let (key, val) = input::update_resource(stdin)?;
-    file::update(None, &pw, res, &key, &val)?;
+
+    update_resource(custom_path, &password, name, key, val)?;
 
     DONE.store(true, Ordering::Relaxed);
     Ok(())
 }
 
-pub fn del(args: Vec<String>) -> Result<(), String> {
+fn update_resource(
+    custom_path: Option<&str>,
+    password: &str,
+    name: String,
+    key: resource::Key,
+    val: String,
+) -> Result<(), String> {
+    let content = file::decrypt(custom_path, &password)?;
+
+    resource::get(&name, &content)?;
+
+    let updated = resource::update(resource::UpdateInput{
+        key,
+        val,
+        name,
+        content, 
+    })?;
+
+    file::encrypt(custom_path, &password, updated)?;
+
+    Ok(())
+}
     if args.len() < 3 {
         return Err(text::MSG_COMMAND_DEL.to_string());
     }
