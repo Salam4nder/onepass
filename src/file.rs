@@ -35,19 +35,17 @@ pub fn create(custom_path: Option<&str>) -> io::Result<std::fs::File> {
         .write(true)
         .create(true)
         .open(&path)?;
-
-pub fn open(custom: Option<&str>) -> io::Result<std::fs::File> {
-    let path = file_path(custom);
-
-    let file = OpenOptions::new()
-        .read(true)
-        .open(&path)?;
+    
+    match custom_path {
+        Some(p) => {println!("Initialized file at {}", p)},
+        None    => {println!("Initialized file at ~/{}/{} {}", DEFAULT_DIR_NAME, DEFAULT_FILE_NAME, ver)}
+    }
 
     Ok(file)
 }
 
 pub fn open_truncate(custom: Option<&str>) -> io::Result<std::fs::File> {
-    let path = file_path(custom);
+    let path = path(custom);
 
     let file = OpenOptions::new()
         .read(true)
@@ -59,7 +57,7 @@ pub fn open_truncate(custom: Option<&str>) -> io::Result<std::fs::File> {
 }
 
 pub fn exists(custom: Option<&str>) -> bool {
-    let path = file_path(custom);
+    let path = path(custom);
     Path::new(&path).exists()
 }
 
