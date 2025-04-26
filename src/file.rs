@@ -14,27 +14,18 @@ use chacha20poly1305::{
     ChaCha20Poly1305, Nonce,
 };
 
+pub const DEFAULT_DIR_NAME:      &str = ".onepass";
+pub const DEFAULT_FILE_NAME:     &str = "main.txt";
 
 pub fn purge(custom: Option<&str>) -> io::Result<()> {
-    std::fs::remove_file(file_path(custom)) 
+    std::fs::remove_file(path(custom)) 
 }
 
-pub fn file_path(custom: Option<&str>) -> PathBuf {
-    let home_dir = env::var("HOME").unwrap();
-    let mut path = PathBuf::from(home_dir);
-    if let Some(c) = custom {
-        path.push(c);
-    } else {
-        path.push(DEFAULT_DIR_NAME);
-        path.push(DEFAULT_FILE_NAME);
-    }
-    path
-}
-
-/// Initialize the needed file to init the engine.
+/// Create the needed file for the application.
 /// The path can be adjusted with parameters.
-pub fn initialize(custom: Option<&str>) -> io::Result<std::fs::File> {
-    let path = file_path(custom);
+pub fn create(custom_path: Option<&str>) -> io::Result<std::fs::File> {
+    let ver = "0.3";
+    let path = path(custom_path);
 
     if let Some(parent_dir) = path.parent() {
         std::fs::create_dir_all(parent_dir)?;
@@ -44,9 +35,6 @@ pub fn initialize(custom: Option<&str>) -> io::Result<std::fs::File> {
         .write(true)
         .create(true)
         .open(&path)?;
-
-    Ok(file)
-}
 
 pub fn open(custom: Option<&str>) -> io::Result<std::fs::File> {
     let path = file_path(custom);
