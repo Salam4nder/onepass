@@ -90,12 +90,8 @@ pub fn encrypt(custom_path: Option<&str>, password: &str, content: String) -> Re
     Ok(ciphertext)
 }
 
-pub fn decrypt(
-    key: &str,
-    content: Vec<u8>,
-    nonce: chacha20poly1305::Nonce,
-) -> Result<String, String> {
-    let h = hmac_sha256::Hash::hash(key.as_bytes());
+pub fn decrypt(path: Option<&str>, password: &str) -> Result<String, String> {
+    let h = hmac_sha256::Hash::hash(password.as_bytes());
 
     let cipher = match ChaCha20Poly1305::new_from_slice(&h) {
         Ok(c) => c,
@@ -103,19 +99,34 @@ pub fn decrypt(
             return Err(err.to_string());
         }
     };
-    let plaintext = match cipher.decrypt(&nonce, content.as_ref()){
+
+    let mut f = match open(path) {
+        Ok(v) => v,
+        Err(err) => return Err(err.to_string()) 
+    };
+    let data = match extract_data(&mut f) { 
+        Ok(v) => v,
+        Err(err) => return Err(err.to_string()) 
+    };
+    let plaintext = match cipher.decrypt(&data.nonce, data.buf.as_ref()){
         Ok(v) => v,
         Err(err) => {
             let err_str = err.to_string();
             if err_str == "aead::Error" {
-                return Err(String::from("incorrect password"))
+                return Err(String::from("Incorrect password - aborting."))
             } else {
                 return Err(err_str)
             }
         }
     };
     match std::str::from_utf8(&plaintext) {
-        Ok(v) => return Ok(v.to_string()),
+        Ok(v) => {
+            let lines: Vec<_> = v.lines().collect();
+            for v in lines {
+                println!("{}", v)
+            }
+            return Ok(v.to_string())
+        },
         Err(err) => return Err(err.to_string()),
     };
 }
