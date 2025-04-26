@@ -26,7 +26,6 @@ fn main() {
             }
             std::thread::sleep(std::time::Duration::from_secs(1));
         }
-        // TODO(kg): should not happen, revisit this.
         println!("onepass: WARNING: bad state, run `onepass purge`")
     }).expect("setting ctrl-c handler");
 
@@ -48,17 +47,17 @@ fn main() {
     };
     match cmd {
         Kind::New => {
-            if let Err(err) = command::new(&mut stdin) {
+            if let Err(err) = command::new(None, &mut stdin) {
                println!("{}", &err);
             };
         },
         Kind::Get => {
-            if let Err(err) = command::get(args) {
+            if let Err(err) = command::get(None, args) {
                println!("{}", &err);
             };
         },
         Kind::Del => {
-            if let Err(err) = command::del(args) {
+            if let Err(err) = command::del(None, args) {
                println!("{}", &err);
             };
         },
@@ -66,7 +65,7 @@ fn main() {
             println!("{}", command::suggest());
         },
         Kind::List => {
-            if let Err(err) = command::list() {
+            if let Err(err) = command::list(None) {
                println!("{}", &err);
             };
         },
@@ -76,7 +75,7 @@ fn main() {
             };
        },
         Kind::Update => {
-            if let Err(err) = command::update(&mut stdin, args) {
+            if let Err(err) = command::update(None, args, &mut stdin) {
                println!("{}", &err);
             };
        },
