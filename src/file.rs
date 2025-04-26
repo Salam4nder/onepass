@@ -61,30 +61,10 @@ pub fn exists(custom: Option<&str>) -> bool {
     Path::new(&path).exists()
 }
 
-pub struct Data {
-    pub nonce: Nonce,
-    pub buf: Vec<u8>,
-}
+pub fn encrypt(custom_path: Option<&str>, password: &str, content: String) -> Result<Vec<u8>, String>{
+    let h = hmac_sha256::Hash::hash(password.as_bytes());
 
-pub fn extract_data(f: &mut File) -> Result<Data, io::Error> {
-    // 12-byte buffer for the nonce.
-    let mut nonce_buf = [0u8; 12];
-    f.read_exact(&mut nonce_buf)?;
-    let nonce = Nonce::from_slice(&nonce_buf).clone();
-
-    let mut buf = Vec::new();
-    f.read_to_end(&mut buf)?;
-
-    Ok(Data { nonce, buf })
-}
-
-pub fn encrypt(
-    key: &str,
-    content: &str,
-    nonce: chacha20poly1305::Nonce,
-) -> Result<Vec<u8>, String>{
-    let h = hmac_sha256::Hash::hash(key.as_bytes());
-
+    let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
     let cipher = match ChaCha20Poly1305::new_from_slice(&h) {
         Ok(c) => c,
         Err(err) => {
@@ -95,6 +75,18 @@ pub fn encrypt(
         Ok(v) => v,
         Err(err) => return Err(err.to_string()),
     };
+
+    let mut f = match open_truncate(custom_path) {
+        Ok(v) => v,
+        Err(err) => return Err(err.to_string())
+    };
+    if let Err(err) = f.write_all(nonce.as_slice()) {
+        return Err(err.to_string())
+    }
+    if let Err(err) = f.write_all(ciphertext.as_slice()) {
+        return Err(err.to_string())
+    }
+
     Ok(ciphertext)
 }
 
