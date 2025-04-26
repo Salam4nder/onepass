@@ -1,17 +1,15 @@
+use crate::text;
 use crate::resource;
 use crate::password;
 
 use std::sync::atomic::{Ordering, AtomicBool};
 use std::io::Stdin;
 
-pub const RESERVED_NONCE:    &str = "nonce";
-pub const RESERVED_RESOURCE: &str = "resource";
-
 pub static MODE: AtomicBool = AtomicBool::new(false);
 
 pub fn master_password() -> Result<String, String> {
     MODE.store(true, Ordering::Relaxed);
-    let input = match rpassword::prompt_password("please input your master password: ") {
+    let input = match rpassword::prompt_password("master password: ") {
         Ok(v) => v,
         Err(err) => return Err(err.to_string())
     };
@@ -60,58 +58,49 @@ pub fn resource(i: &mut Stdin) -> Result<resource::Instance, String> {
 }
 
 // Returns a tuple of (Key, Value) of a resource to update.
-// E.g (resource::NAME, new_name).
-pub fn update_resource(i: &mut Stdin) -> Result<(String, String), String> {
+// E.g (resource::Key::NAME, new_name).
+pub fn update_resource(i: &mut Stdin) -> Result<(resource::Key, String), String> {
     MODE.store(true, Ordering::Relaxed);
     println!("update name (n), user (u) or password (p)?");
-    let mut input = String::new();
-    if let Err(err) = i.read_line(&mut input) { 
+    let mut target = String::new();
+    if let Err(err) = i.read_line(&mut target) { 
         return Err(err.to_string())
     }
-    let key = match input.as_str() {
-        "n\n" => resource::NAME,
-        "u\n" => resource::USER,
-        "p\n" => resource::PASSWORD,
-        _     => { 
-                    println!("unsupported command, aborting...");
-                    return Err("cancelled by user".to_string())
-                 },
+    let key = match target.as_str() {
+        "n\n" => resource::Key::Name,
+        "u\n" => resource::Key::User,
+        "p\n" => resource::Key::Password,
+        _     => return Err("Unsupported command".to_string()),
     };
 
-    let val: String;
+    let mut val = String::new();
     match key {
-        resource::NAME     => {
+        resource::Key::Name     => {
             println!("new resource name: ");
-            let mut tmp = String::new();
-            if let Err(err) = i.read_line(&mut tmp) { 
+            if let Err(err) = i.read_line(&mut val) { 
                 return Err(err.to_string())
             }
-            // TODO(kg): Check for existing resource.
-            val = tmp;
         },
-        resource::USER     => {
+        resource::Key::User     => {
             println!("new resource user: ");
-            let mut tmp = String::new();
-            if let Err(err) = i.read_line(&mut tmp) { 
+            if let Err(err) = i.read_line(&mut val) { 
                 return Err(err.to_string())
             }
-            val = tmp;
         },
-        resource::PASSWORD => {
+        resource::Key::Password => {
             val = match rpassword::prompt_password("new password: ") {
                 Ok(v) => v,
                 Err(err) => return Err(err.to_string())
             };
         },
-        _                  => {
-            return Err("key malformed".to_string())
-        },
     }
+    val = val.trim().to_string();
 
     MODE.store(false, Ordering::Relaxed);
-    Ok((String::from(key), val))
+    Ok((key, val))
 }
 
 pub fn is_reserved(input: &str) -> bool {
-    input == RESERVED_NONCE || input == RESERVED_RESOURCE
+    input == text::RESERVED_NONCE ||
+        input == text::RESERVED_RESOURCE
 }
