@@ -103,3 +103,34 @@ pub fn delete(name: &str, content: String) -> Result<String, String> {
 
     Ok(result.join("\n").to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn seed(amount: u8) -> String {
+        let mut content = String::new();
+        for i in 0..amount {
+            content.push_str("resource\n");
+            content.push_str(format!("name{}\n", i).as_str());
+            content.push_str(format!("user{}\n", i).as_str());
+            content.push_str(format!("password{}\n", i).as_str());
+        }
+        content
+    }
+
+    #[test]
+    fn test_get() {
+        let name = "twitter";
+        let user = "user@email.com";
+        let password = "password";
+        let content = format!("resource\n{}\n{}\n{}\n", name, user, password);
+
+        let resource = get("twitter", &content).expect("getting");
+        assert_eq!(resource.name, name);
+        assert_eq!(resource.user, user);
+        assert_eq!(resource.password, password);
+
+        let err_result = get("does-not-exist", &content);
+        assert_eq!(err_result.unwrap_err(), "Resource not found");
+    }
