@@ -8,7 +8,7 @@ const SPECIAL_CHARS: &[u8; 26] = b"!@#$%^&*()-_=+[]{}|;:,.<>?";
 pub fn suggest(length: usize) -> String {
     let mut rng = rand::thread_rng();
 
-    // Make sure we include at least one of each character type
+    // Make sure we include at least one of each character type.
     let mut password = vec![
         UPPERCASE[rng.gen_range(0..UPPERCASE.len())] as char,
         LOWERCASE[rng.gen_range(0..LOWERCASE.len())] as char,
@@ -23,19 +23,18 @@ pub fn suggest(length: usize) -> String {
         .copied()
         .collect();
 
-    // Fill the rest of the password
+    // Fill the rest of the password.
     for _ in 4..length {
         let random_char = all_chars[rng.gen_range(0..all_chars.len())] as char;
         password.push(random_char);
     }
 
-    // Shuffle the password vector by swapping random elements
+    // Shuffle the password vector by swapping random elements.
     for i in 0..password.len() {
         let j = rng.gen_range(0..password.len());
         password.swap(i, j);
     }
 
-    // Collect characters into a final password string
     password.into_iter().collect()
 }
 
