@@ -182,3 +182,35 @@ mod tests {
         assert_eq!(lines[10], "user2");
         assert_eq!(lines[11], "password2");
     }
+
+    #[test]
+    fn test_update_user() {
+        let new_value = "new_user";
+        let content = seed(3);
+        let updated = update(UpdateInput{
+            key: Key::User,
+            val: String::from(new_value),
+            name: String::from("name0"),
+            content
+        }).expect("updating");
+        let lines: Vec<&str> = updated.lines().collect();
+        assert_eq!(lines[1], "name0");
+        assert_eq!(lines[2], new_value);
+        assert_eq!(lines[3], "password0");
+    }
+
+    #[test]
+    fn test_update_password() {
+        let new_value = "new_password";
+        let content = seed(3);
+        let updated = update(UpdateInput{
+            key: Key::Password,
+            val: String::from(new_value),
+            name: String::from("name1"),
+            content
+        }).expect("updating");
+        let lines: Vec<&str> = updated.lines().collect();
+        assert_eq!(lines[5], "name1");
+        assert_eq!(lines[6], "user1");
+        assert_eq!(lines[7], new_value);
+    }
