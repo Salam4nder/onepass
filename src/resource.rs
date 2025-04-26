@@ -134,3 +134,28 @@ mod tests {
         let err_result = get("does-not-exist", &content);
         assert_eq!(err_result.unwrap_err(), "Resource not found");
     }
+
+    #[test]
+    fn test_get_many() {
+        let mut long_content = String::new();
+        let target_name = "website";
+        let target_user = "website@user.com";
+        let target_password = "websitepass";
+        for i in 1..100 {
+            if i == 50 {
+                long_content.push_str("resource\n");
+                long_content.push_str(format!("{}\n", target_name).as_str());
+                long_content.push_str(format!("{}\n", target_user).as_str());
+                long_content.push_str(format!("{}\n", target_password).as_str());
+                continue
+            }
+            long_content.push_str("resource\n");
+            long_content.push_str(format!("name{}\n", i).as_str());
+            long_content.push_str(format!("user{}\n", i).as_str());
+            long_content.push_str(format!("password{}\n", i).as_str());
+        }
+        let long_result = get("website", &long_content).expect("getting long result");
+        assert_eq!(long_result.name, target_name);
+        assert_eq!(long_result.user, target_user);
+        assert_eq!(long_result.password, target_password);
+    }
