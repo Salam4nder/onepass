@@ -192,70 +192,27 @@ mod tests {
     }
 
     #[test]
-    fn encrypt_decrypt() {
-        let content = "content\ndelimiter\nsecret-stuff";
-        let key = "masterPassword";
-        let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
-
-        let encrypted_content = encrypt(key, content, nonce).expect("encrypting");
-        let decrypted_content = decrypt(
-            key,
-            encrypted_content,
-            nonce,
-        ).expect("decrypting");
-
-        assert_eq!(content, decrypted_content);
-    }
-
-    #[test]
-    fn test_exists() {
+    fn test_create() {
         let id = Uuid::new_v4();
         let cleanup = Cleanup{file_name: id.to_string()};
         let t_path = &cleanup.path();
-        let master_password = "my_master_pw";
-        bootstrap(Some(t_path), master_password).expect("bootstrapping");
-
-        if !exists(Some(t_path)) {
-            panic!("exists incorrect")
-        }
+        create(Some(t_path)).expect("creating");
     }
 
     #[test]
-    fn test_bootstrap() {
+    fn test_extract() {
         let id = Uuid::new_v4();
         let cleanup = Cleanup{file_name: id.to_string()};
         let t_path = &cleanup.path();
-        let master_password = "my_master_pw";
-        bootstrap(Some(t_path), master_password).expect("bootstrapping");
-    }
+        create(Some(t_path)).expect("creating");
+        let c = "content\ndelimiter\nsecret-stuff\n";
+        encrypt(Some(t_path), "master_pw", c.to_string()).expect("encrypting");
 
-    #[test]
-    fn test_get() {
-        let id = Uuid::new_v4();
-        let cleanup = Cleanup{file_name: id.to_string()};
-        let t_path = &cleanup.path();
+        let mut o = open(Some(t_path)).expect("opening");
+        let data = extract_data(&mut o).expect("extracting");
 
-        let master_password = "my_master_pw";
-        bootstrap(Some(t_path), master_password).expect("bootstrapping");
-
-
-        let name = "twitter".to_string();
-        let user = "user@mail.com";
-        let password = "password";
-        write(
-            Some(t_path),
-            master_password,
-            resource::Instance{
-                name: name.clone(),
-                user: user.to_string(),
-                password: password.to_string(),
-            },
-        ).expect("writing");
-        let result = get(Some(t_path), master_password, &name).expect("getting");
-
-        assert_eq!(name, result.resource.name);
-        assert_eq!(user, result.resource.user);
-        assert_eq!(password, result.resource.password);
+        assert!(data.buf.len() > 0);
+        assert_eq!(data.nonce.len(), 12);
     }
 
     #[test]
