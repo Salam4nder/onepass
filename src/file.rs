@@ -120,14 +120,8 @@ pub fn decrypt(path: Option<&str>, password: &str) -> Result<String, String> {
         }
     };
     match std::str::from_utf8(&plaintext) {
-        Ok(v) => {
-            let lines: Vec<_> = v.lines().collect();
-            for v in lines {
-                println!("{}", v)
-            }
-            return Ok(v.to_string())
-        },
-        Err(err) => return Err(err.to_string()),
+        Ok(v) => return Ok(v.to_string()),
+        Err(err) => return Err(err.to_string())
     };
 }
 
