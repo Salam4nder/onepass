@@ -420,3 +420,20 @@ mod tests {
         assert_eq!("user2", got.user);
         assert_eq!(new_password, got.password);
     }
+
+    #[test]
+    fn test_delete_resource() {
+        let id = Uuid::new_v4();
+        let cleanup = Cleanup{file_name: id.to_string()};
+        let t_path = &cleanup.path();
+        file::create(Some(t_path)).expect("creating");
+
+        let master_password = seed(t_path, 5);
+
+        delete_resource(Some(t_path), &master_password, "name1").
+            expect("deleting");
+
+        let list = list_resources(Some(t_path), &master_password).expect("listing");
+        assert_eq!(4, list.len());
+    }
+}
