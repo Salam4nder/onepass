@@ -19,6 +19,8 @@
         devShells.default = pkgs.mkShell {
           packages = [
             pkgs.nixfmt
+            pkgs.python3
+            pkgs.libxcb
 
             pkgs.cargo
             pkgs.clippy
