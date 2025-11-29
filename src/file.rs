@@ -1,24 +1,24 @@
 use std::env;
-use std::str;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::SeekFrom;
+use std::io::{self, Read, Seek, Write};
 use std::path::{Path, PathBuf};
-use std::io::{self, Read, Write, Seek};
+use std::str;
 
-use hmac_sha256;
-use rand::rngs::OsRng;
 use chacha20poly1305::AeadCore;
 use chacha20poly1305::{
     aead::{Aead, KeyInit},
     ChaCha20Poly1305, Nonce,
 };
+use hmac_sha256;
+use rand::rngs::OsRng;
 
-pub const DEFAULT_DIR_NAME:      &str = ".onepass";
-pub const DEFAULT_FILE_NAME:     &str = "main.txt";
+pub const DEFAULT_DIR_NAME: &str = ".onepass";
+pub const DEFAULT_FILE_NAME: &str = "main.txt";
 
 pub fn purge(custom: Option<&str>) -> io::Result<()> {
-    std::fs::remove_file(path(custom)) 
+    std::fs::remove_file(path(custom))
 }
 
 /// Create the needed file for the application.
@@ -31,14 +31,18 @@ pub fn create(custom_path: Option<&str>) -> io::Result<std::fs::File> {
         std::fs::create_dir_all(parent_dir)?;
     }
 
-    let file = OpenOptions::new()
-        .write(true)
-        .create(true)
-        .open(&path)?;
-    
+    let file = OpenOptions::new().write(true).create(true).open(&path)?;
+
     match custom_path {
-        Some(p) => {println!("Initialized file at {}", p)},
-        None    => {println!("Initialized file at ~/{}/{} {}", DEFAULT_DIR_NAME, DEFAULT_FILE_NAME, ver)}
+        Some(p) => {
+            println!("Initialized file at {}", p)
+        }
+        None => {
+            println!(
+                "Initialized file at ~/{}/{} {}",
+                DEFAULT_DIR_NAME, DEFAULT_FILE_NAME, ver
+            )
+        }
     }
 
     Ok(file)
@@ -61,7 +65,11 @@ pub fn exists(custom: Option<&str>) -> bool {
     Path::new(&path).exists()
 }
 
-pub fn encrypt(custom_path: Option<&str>, password: &str, content: String) -> Result<Vec<u8>, String>{
+pub fn encrypt(
+    custom_path: Option<&str>,
+    password: &str,
+    content: String,
+) -> Result<Vec<u8>, String> {
     let h = hmac_sha256::Hash::hash(password.as_bytes());
 
     let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
@@ -78,13 +86,13 @@ pub fn encrypt(custom_path: Option<&str>, password: &str, content: String) -> Re
 
     let mut f = match open_truncate(custom_path) {
         Ok(v) => v,
-        Err(err) => return Err(err.to_string())
+        Err(err) => return Err(err.to_string()),
     };
     if let Err(err) = f.write_all(nonce.as_slice()) {
-        return Err(err.to_string())
+        return Err(err.to_string());
     }
     if let Err(err) = f.write_all(ciphertext.as_slice()) {
-        return Err(err.to_string())
+        return Err(err.to_string());
     }
 
     Ok(ciphertext)
@@ -102,26 +110,26 @@ pub fn decrypt(path: Option<&str>, password: &str) -> Result<String, String> {
 
     let mut f = match open(path) {
         Ok(v) => v,
-        Err(err) => return Err(err.to_string()) 
+        Err(err) => return Err(err.to_string()),
     };
-    let data = match extract_data(&mut f) { 
+    let data = match extract_data(&mut f) {
         Ok(v) => v,
-        Err(err) => return Err(err.to_string()) 
+        Err(err) => return Err(err.to_string()),
     };
-    let plaintext = match cipher.decrypt(&data.nonce, data.buf.as_ref()){
+    let plaintext = match cipher.decrypt(&data.nonce, data.buf.as_ref()) {
         Ok(v) => v,
         Err(err) => {
             let err_str = err.to_string();
             if err_str == "aead::Error" {
-                return Err(String::from("Incorrect password - aborting."))
+                return Err(String::from("Incorrect password - aborting."));
             } else {
-                return Err(err_str)
+                return Err(err_str);
             }
         }
     };
     match std::str::from_utf8(&plaintext) {
         Ok(v) => return Ok(v.to_string()),
-        Err(err) => return Err(err.to_string())
+        Err(err) => return Err(err.to_string()),
     };
 }
 
@@ -158,9 +166,7 @@ fn extract_data(f: &mut File) -> Result<Data, io::Error> {
 fn open(custom: Option<&str>) -> io::Result<std::fs::File> {
     let path = path(custom);
 
-    let file = OpenOptions::new()
-        .read(true)
-        .open(&path)?;
+    let file = OpenOptions::new().read(true).open(&path)?;
 
     Ok(file)
 }
@@ -169,12 +175,16 @@ fn open(custom: Option<&str>) -> io::Result<std::fs::File> {
 mod tests {
     use super::*;
     use uuid::Uuid;
-    
-    struct Cleanup {file_name: String}
+
+    struct Cleanup {
+        file_name: String,
+    }
 
     impl Cleanup {
         fn path(&self) -> String {
-            format!("{}/{}.txt", DEFAULT_DIR_NAME, self.file_name).as_str().to_string()
+            format!("{}/{}.txt", DEFAULT_DIR_NAME, self.file_name)
+                .as_str()
+                .to_string()
         }
     }
 
@@ -188,7 +198,9 @@ mod tests {
     #[test]
     fn test_create() {
         let id = Uuid::new_v4();
-        let cleanup = Cleanup{file_name: id.to_string()};
+        let cleanup = Cleanup {
+            file_name: id.to_string(),
+        };
         let t_path = &cleanup.path();
         create(Some(t_path)).expect("creating");
     }
@@ -196,7 +208,9 @@ mod tests {
     #[test]
     fn test_extract() {
         let id = Uuid::new_v4();
-        let cleanup = Cleanup{file_name: id.to_string()};
+        let cleanup = Cleanup {
+            file_name: id.to_string(),
+        };
         let t_path = &cleanup.path();
         create(Some(t_path)).expect("creating");
         let c = "content\ndelimiter\nsecret-stuff\n";
@@ -212,18 +226,17 @@ mod tests {
     #[test]
     fn test_encrypt_decrypt() {
         let id = Uuid::new_v4();
-        let cleanup = Cleanup{file_name: id.to_string()};
+        let cleanup = Cleanup {
+            file_name: id.to_string(),
+        };
         let t_path = &cleanup.path();
         create(Some(t_path)).expect("creating");
 
         let content = "content\ndelimiter\nsecret-stuff\n";
         let pw = "masterPassword";
         encrypt(Some(t_path), pw, content.to_string()).expect("encrypting");
-        
-        let decrypted_content = decrypt(
-            Some(t_path),
-            pw,
-        ).expect("decrypting");
+
+        let decrypted_content = decrypt(Some(t_path), pw).expect("decrypting");
 
         assert_eq!(content, decrypted_content);
     }
@@ -241,7 +254,9 @@ mod tests {
     #[test]
     fn test_exists() {
         let id = Uuid::new_v4();
-        let cleanup = Cleanup{file_name: id.to_string()};
+        let cleanup = Cleanup {
+            file_name: id.to_string(),
+        };
         let t_path = &cleanup.path();
 
         assert!(!exists(Some(t_path)));

@@ -1,8 +1,8 @@
 use rand::Rng;
 
-const UPPERCASE:     &[u8; 26] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-const LOWERCASE:     &[u8; 26] = b"abcdefghijklmnopqrstuvwxyz";
-const NUMBERS:       &[u8; 10] = b"0123456789";
+const UPPERCASE: &[u8; 26] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const LOWERCASE: &[u8; 26] = b"abcdefghijklmnopqrstuvwxyz";
+const NUMBERS: &[u8; 10] = b"0123456789";
 const SPECIAL_CHARS: &[u8; 26] = b"!@#$%^&*()-_=+[]{}|;:,.<>?";
 
 pub fn suggest(length: usize) -> String {
@@ -16,7 +16,8 @@ pub fn suggest(length: usize) -> String {
         SPECIAL_CHARS[rng.gen_range(0..SPECIAL_CHARS.len())] as char,
     ];
 
-    let all_chars: Vec<u8> = UPPERCASE.iter()
+    let all_chars: Vec<u8> = UPPERCASE
+        .iter()
         .chain(LOWERCASE)
         .chain(NUMBERS)
         .chain(SPECIAL_CHARS)
@@ -41,13 +42,13 @@ pub fn suggest(length: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn suggest_test() {
         for _ in 0..15 {
-            let mut found_number      : bool = false;
-            let mut found_uppercase   : bool = false;
-            let mut found_lowercase   : bool = false;
+            let mut found_number: bool = false;
+            let mut found_uppercase: bool = false;
+            let mut found_lowercase: bool = false;
             let mut found_special_char: bool = false;
             let example = suggest(14);
             for v in example.as_bytes() {
@@ -65,15 +66,12 @@ mod tests {
                 }
             }
             if example.len() != 14 {
-                   panic!("password not 14 chars")
+                panic!("password not 14 chars")
             }
 
-            if !found_number       ||
-               !found_special_char ||
-               !found_lowercase    ||
-               !found_uppercase    {
-                   panic!("password not strong")
-               }
-        };
+            if !found_number || !found_special_char || !found_lowercase || !found_uppercase {
+                panic!("password not strong")
+            }
+        }
     }
 }
