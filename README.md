@@ -20,3 +20,6 @@ COMMANDS:
 OPTIONS:
     -l, --location - specify the location of the source file
 ```
+
+## Development
+Enter the development environment with `nix develop`.
