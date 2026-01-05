@@ -37,18 +37,17 @@ pub fn resource(i: &mut Stdin) -> Result<resource::Instance, String> {
         };
         Ok(input.trim().to_string())
     };
-    let password: String;
     let name = fn_ask_for("resource")?;
     let user = fn_ask_for("user")?;
     let yes_no = fn_ask_for("generated a strong password, do you want to use it? (y/n)")?;
-    if yes_no == "y" {
-        password = password::suggest(14);
+    let password: String = if yes_no == "y" {
+        password::suggest(14)
     } else {
-        password = match rpassword::prompt_password("choose a password: ") {
+        match rpassword::prompt_password("choose a password: ") {
             Ok(v) => v,
             Err(err) => return Err(err.to_string()),
-        };
-    }
+        }
+    };
     MODE.store(false, Ordering::Relaxed);
     Ok(resource::Instance {
         name,

@@ -11,7 +11,6 @@ use chacha20poly1305::{
     aead::{Aead, KeyInit},
     ChaCha20Poly1305, Nonce,
 };
-use hmac_sha256;
 use rand::rngs::OsRng;
 
 pub const DEFAULT_DIR_NAME: &str = ".onepass";
@@ -31,7 +30,10 @@ pub fn create(custom_path: Option<&str>) -> io::Result<std::fs::File> {
         std::fs::create_dir_all(parent_dir)?;
     }
 
-    let file = OpenOptions::new().write(true).create(true).open(&path)?;
+    let file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&path)?;
 
     match custom_path {
         Some(p) => {
@@ -128,9 +130,9 @@ pub fn decrypt(path: Option<&str>, password: &str) -> Result<String, String> {
         }
     };
     match std::str::from_utf8(&plaintext) {
-        Ok(v) => return Ok(v.to_string()),
-        Err(err) => return Err(err.to_string()),
-    };
+        Ok(v) => Ok(v.to_string()),
+        Err(err) => Err(err.to_string()),
+    }
 }
 
 pub fn path(custom_path: Option<&str>) -> PathBuf {
@@ -154,7 +156,7 @@ fn extract_data(f: &mut File) -> Result<Data, io::Error> {
     let mut nonce_buf = [0u8; 12];
     f.read_exact(&mut nonce_buf)?;
 
-    let nonce = Nonce::from_slice(&nonce_buf).clone();
+    let nonce = *Nonce::from_slice(&nonce_buf);
 
     f.seek(SeekFrom::Start(12))?;
     let mut buf = Vec::new();

@@ -26,15 +26,15 @@ pub enum Kind {
 impl Kind {
     pub fn from_string(s: &str) -> Option<Kind> {
         match s {
-            "new" => return Some(Kind::New),
-            "get" => return Some(Kind::Get),
-            "del" => return Some(Kind::Del),
-            "help" => return Some(Kind::Help),
-            "list" => return Some(Kind::List),
-            "purge" => return Some(Kind::Purge),
-            "update" => return Some(Kind::Update),
-            "suggest" => return Some(Kind::Suggest),
-            _ => return None,
+            "new" => Some(Kind::New),
+            "get" => Some(Kind::Get),
+            "del" => Some(Kind::Del),
+            "help" => Some(Kind::Help),
+            "list" => Some(Kind::List),
+            "purge" => Some(Kind::Purge),
+            "update" => Some(Kind::Update),
+            "suggest" => Some(Kind::Suggest),
+            _ => None,
         }
     }
 }
@@ -81,7 +81,7 @@ fn new_resource(
         content.push_str(resource.to_string().as_str());
     }
 
-    file::encrypt(custom_path, &password, content)?;
+    file::encrypt(custom_path, password, content)?;
     Ok(())
 }
 
@@ -106,7 +106,7 @@ pub fn get(custom_path: Option<&str>, args: Vec<String>) -> Result<Clipboard, St
         Ok(v) => v,
         Err(err) => return Err(err.to_string()),
     };
-    if let Err(_) = ctx.set_text(got.password.to_owned()) {
+    if ctx.set_text(got.password.to_owned()).is_err() {
         println!("Password: {}", got.password);
         println!("Don't forget to clear your terminal");
     } else {
@@ -122,7 +122,7 @@ fn get_resource(
     password: &str,
     resource_name: &str,
 ) -> Result<resource::Instance, String> {
-    let content = file::decrypt(custom_path, &password)?;
+    let content = file::decrypt(custom_path, password)?;
     let got = resource::get(resource_name, &content)?;
     Ok(got)
 }
@@ -135,7 +135,7 @@ pub fn list(custom_path: Option<&str>) -> Result<(), String> {
     let password = input::master_password()?;
 
     let result = list_resources(custom_path, &password)?;
-    if result.len() < 1 {
+    if result.is_empty() {
         return Err(text::MSG_NO_RESOURCES.to_string());
     }
     for v in result {
@@ -147,7 +147,7 @@ pub fn list(custom_path: Option<&str>) -> Result<(), String> {
 }
 
 fn list_resources(custom_path: Option<&str>, password: &str) -> Result<Vec<String>, String> {
-    let content = file::decrypt(custom_path, &password)?;
+    let content = file::decrypt(custom_path, password)?;
 
     let mut result: Vec<String> = vec![];
     let lines: Vec<&str> = content.lines().collect();
@@ -206,7 +206,7 @@ fn update_resource(
     key: resource::Key,
     val: String,
 ) -> Result<(), String> {
-    let content = file::decrypt(custom_path, &password)?;
+    let content = file::decrypt(custom_path, password)?;
 
     resource::get(&name, &content)?;
 
@@ -217,7 +217,7 @@ fn update_resource(
         content,
     })?;
 
-    file::encrypt(custom_path, &password, updated)?;
+    file::encrypt(custom_path, password, updated)?;
 
     Ok(())
 }
@@ -244,9 +244,9 @@ pub fn del(custom_path: Option<&str>, args: Vec<String>) -> Result<(), String> {
 }
 
 fn delete_resource(custom_path: Option<&str>, password: &str, name: &str) -> Result<(), String> {
-    let content = file::decrypt(custom_path, &password)?;
+    let content = file::decrypt(custom_path, password)?;
     let deleted = resource::delete(name, content)?;
-    file::encrypt(custom_path, &password, deleted)?;
+    file::encrypt(custom_path, password, deleted)?;
     Ok(())
 }
 
@@ -257,13 +257,13 @@ pub fn help(args: Vec<String>) -> String {
 
     if let Some(command) = Kind::from_string(&args[2]) {
         match command {
-            Kind::Get => return text::MSG_COMMAND_GET.to_string(),
-            Kind::Del => return text::MSG_COMMAND_DEL.to_string(),
-            Kind::Update => return text::MSG_COMMAND_UPDATE.to_string(),
-            _ => return text::MSG_HELP.to_string(),
+            Kind::Get => text::MSG_COMMAND_GET.to_string(),
+            Kind::Del => text::MSG_COMMAND_DEL.to_string(),
+            Kind::Update => text::MSG_COMMAND_UPDATE.to_string(),
+            _ => text::MSG_HELP.to_string(),
         }
     } else {
-        return text::MSG_HELP.to_string();
+        text::MSG_HELP.to_string()
     }
 }
 

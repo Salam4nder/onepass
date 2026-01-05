@@ -13,16 +13,13 @@ pub struct Instance {
     pub password: String,
 }
 
-impl ToString for Instance {
-    fn to_string(&self) -> String {
-        let mut s = String::from("resource\n");
-        s.push_str(&self.name);
-        s.push_str("\n");
-        s.push_str(&self.user);
-        s.push_str("\n");
-        s.push_str(&self.password);
-        s.push_str("\n");
-        s
+impl std::fmt::Display for Instance {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "resource\n{}\n{}\n{}\n",
+            &self.name, &self.user, &self.password
+        )
     }
 }
 

@@ -6,7 +6,6 @@ mod resource;
 mod text;
 
 use command::Kind;
-use ctrlc;
 use std::env;
 use std::sync::atomic::Ordering;
 
