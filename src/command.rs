@@ -8,8 +8,7 @@ use crate::password;
 use crate::resource;
 use crate::text;
 
-use clipboard::ClipboardContext;
-use clipboard::ClipboardProvider;
+use arboard::Clipboard;
 
 pub static DONE: AtomicBool = AtomicBool::new(false);
 
@@ -86,7 +85,7 @@ fn new_resource(
     Ok(())
 }
 
-pub fn get(custom_path: Option<&str>, args: Vec<String>) -> Result<(), String> {
+pub fn get(custom_path: Option<&str>, args: Vec<String>) -> Result<Clipboard, String> {
     if args.len() < 3 {
         return Err(text::MSG_COMMAND_GET.to_string());
     }
@@ -103,11 +102,11 @@ pub fn get(custom_path: Option<&str>, args: Vec<String>) -> Result<(), String> {
 
     let got = get_resource(custom_path, &password, resource_name)?;
     println!("Username: {}", got.user);
-    let mut ctx: ClipboardContext = match ClipboardProvider::new() {
+    let mut ctx = match Clipboard::new() {
         Ok(v) => v,
         Err(err) => return Err(err.to_string()),
     };
-    if let Err(_) = ctx.set_contents(got.password.to_owned()) {
+    if let Err(_) = ctx.set_text(got.password.to_owned()) {
         println!("Password: {}", got.password);
         println!("Don't forget to clear your terminal");
     } else {
@@ -115,7 +114,7 @@ pub fn get(custom_path: Option<&str>, args: Vec<String>) -> Result<(), String> {
     };
 
     DONE.store(true, Ordering::Relaxed);
-    Ok(())
+    Ok(ctx)
 }
 
 fn get_resource(

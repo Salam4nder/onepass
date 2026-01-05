@@ -10,7 +10,7 @@ use ctrlc;
 use std::env;
 use std::sync::atomic::Ordering;
 
-extern crate clipboard;
+// extern crate arboard;
 extern crate rpassword;
 
 fn main() {
@@ -66,8 +66,9 @@ fn main() {
             };
         }
         Kind::Get => {
-            if let Err(err) = command::get(path.as_deref(), args) {
-                println!("{}", &err);
+            match command::get(path.as_deref(), args) {
+                Ok(_) => input::drop_clipboard_ctx(&mut stdin),
+                Err(e) => println!("{}", &e),
             };
         }
         Kind::Del => {

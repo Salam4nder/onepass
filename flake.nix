@@ -32,6 +32,8 @@
           shellHook = ''
             echo Entered the onepass development environment.
             export RUST_LOG=debug
+            alias cr='cargo r'
+            alias cc='cargo c'
           '';
         };
       }

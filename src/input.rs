@@ -100,6 +100,15 @@ pub fn update_resource(i: &mut Stdin) -> Result<(resource::Key, String), String>
     Ok((key, val))
 }
 
+pub fn drop_clipboard_ctx(i: &mut Stdin) {
+    MODE.store(true, Ordering::Relaxed);
+    println!("Press any button to drop clipboard context");
+    let mut target = String::new();
+    if let Err(err) = i.read_line(&mut target) {
+        println!("{err}");
+    }
+}
+
 pub fn is_reserved(input: &str) -> bool {
     input == text::RESERVED_NONCE || input == text::RESERVED_RESOURCE
 }
