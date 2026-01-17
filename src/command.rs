@@ -215,7 +215,7 @@ fn update_resource(
         val,
         name,
         content,
-    })?;
+    });
 
     file::encrypt(custom_path, password, updated)?;
 
@@ -245,7 +245,7 @@ pub fn del(custom_path: Option<&str>, args: Vec<String>) -> Result<(), String> {
 
 fn delete_resource(custom_path: Option<&str>, password: &str, name: &str) -> Result<(), String> {
     let content = file::decrypt(custom_path, password)?;
-    let deleted = resource::delete(name, content)?;
+    let deleted = resource::delete(name, &content)?;
     file::encrypt(custom_path, password, deleted)?;
     Ok(())
 }

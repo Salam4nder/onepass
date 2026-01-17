@@ -45,16 +45,21 @@ pub struct UpdateInput {
     pub content: String,
 }
 
-pub fn update(input: UpdateInput) -> Result<String, String> {
+pub fn update(input: UpdateInput) -> String {
     let mut target_idx = 1;
 
     match input.key {
         Key::Name => (),
         Key::User => target_idx += 1,
         Key::Password => target_idx += 2,
-    };
+    }
 
-    let mut lines: Vec<String> = input.content.lines().map(|s| s.to_string()).collect();
+    let mut lines: Vec<String> = input
+        .content
+        .lines()
+        .map(std::string::ToString::to_string)
+        .collect();
+
     for (i, _) in lines.iter().enumerate() {
         if lines[i] == text::RESERVED_RESOURCE && lines[i + 1] == input.name {
             lines[target_idx + i] = input.val;
@@ -62,10 +67,10 @@ pub fn update(input: UpdateInput) -> Result<String, String> {
         }
     }
 
-    Ok(lines.join("\n").to_string())
+    lines.join("\n").clone()
 }
 
-pub fn delete(name: &str, content: String) -> Result<String, String> {
+pub fn delete(name: &str, content: &str) -> Result<String, String> {
     let mut name_idx = 0;
     let mut user_idx = 0;
     let mut pw_idx = 0;
@@ -98,7 +103,7 @@ pub fn delete(name: &str, content: String) -> Result<String, String> {
         return Err("Resource not found".to_string());
     }
 
-    Ok(result.join("\n").to_string())
+    Ok(result.join("\n").clone())
 }
 
 #[cfg(test)]
@@ -173,8 +178,7 @@ mod tests {
             val: String::from(new_value),
             name: String::from("name2"),
             content,
-        })
-        .expect("updating");
+        });
         let lines: Vec<&str> = updated.lines().collect();
         assert_eq!(lines[9], new_value);
         assert_eq!(lines[10], "user2");
@@ -190,8 +194,7 @@ mod tests {
             val: String::from(new_value),
             name: String::from("name0"),
             content,
-        })
-        .expect("updating");
+        });
         let lines: Vec<&str> = updated.lines().collect();
         assert_eq!(lines[1], "name0");
         assert_eq!(lines[2], new_value);
@@ -207,8 +210,7 @@ mod tests {
             val: String::from(new_value),
             name: String::from("name1"),
             content,
-        })
-        .expect("updating");
+        });
         let lines: Vec<&str> = updated.lines().collect();
         assert_eq!(lines[5], "name1");
         assert_eq!(lines[6], "user1");
@@ -218,7 +220,7 @@ mod tests {
     #[test]
     fn test_delete() {
         let mut content = seed(3);
-        let deleted = delete("name0", content).expect("deleting");
+        let deleted = delete("name0", &content).expect("deleting");
         let lines: Vec<&str> = deleted.lines().collect();
         assert_eq!(lines.len(), 8);
         assert!(!lines.contains(&"name0"));
@@ -226,7 +228,7 @@ mod tests {
         assert!(!lines.contains(&"password0"));
 
         content = seed(3);
-        let not_found = delete("non", content);
+        let not_found = delete("non", &content);
         assert_eq!(not_found.unwrap_err(), "Resource not found");
     }
 }

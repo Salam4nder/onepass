@@ -34,7 +34,7 @@ pub fn resource(i: &mut Stdin) -> Result<resource::Instance, String> {
         }
         if is_reserved(&input) {
             return Err("use of reserved keyword".to_string());
-        };
+        }
         Ok(input.trim().to_string())
     };
     let name = fn_ask_for("resource")?;

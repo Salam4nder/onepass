@@ -65,13 +65,11 @@ mod tests {
                     found_special_char = true;
                 }
             }
-            if example.len() != 14 {
-                panic!("password not 14 chars")
-            }
-
-            if !found_number || !found_special_char || !found_lowercase || !found_uppercase {
-                panic!("password not strong")
-            }
+            assert_eq!(example.len(), 14, "password not 14 chars");
+            assert!(
+                !(!found_number || !found_special_char || !found_lowercase || !found_uppercase),
+                "password not strong"
+            );
         }
     }
 }
