@@ -17,17 +17,17 @@ pub fn master_password() -> Result<String, String> {
 
     if input.trim().is_empty() {
         return Err("password can not be empty".to_string());
-    };
+    }
     if input.contains(' ') {
         return Err("password can not contain spaces".to_string());
-    };
+    }
     Ok(input)
 }
 
 pub fn resource(i: &mut Stdin) -> Result<resource::Instance, String> {
     MODE.store(true, Ordering::Relaxed);
     let fn_ask_for = |m: &str| -> Result<String, String> {
-        println!("{}: ", m);
+        println!("{m}: ");
         let mut input = String::new();
         if let Err(err) = i.read_line(&mut input) {
             return Err(err.to_string());

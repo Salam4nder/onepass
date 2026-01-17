@@ -37,13 +37,10 @@ pub fn create(custom_path: Option<&str>) -> io::Result<std::fs::File> {
 
     match custom_path {
         Some(p) => {
-            println!("Initialized file at {}", p)
+            println!("Initialized file at {p}");
         }
         None => {
-            println!(
-                "Initialized file at ~/{}/{} {}",
-                DEFAULT_DIR_NAME, DEFAULT_FILE_NAME, ver
-            )
+            println!("Initialized file at ~/{DEFAULT_DIR_NAME}/{DEFAULT_FILE_NAME} {ver}");
         }
     }
 
@@ -70,7 +67,7 @@ pub fn exists(custom: Option<&str>) -> bool {
 pub fn encrypt(
     custom_path: Option<&str>,
     password: &str,
-    content: String,
+    content: &str,
 ) -> Result<Vec<u8>, String> {
     let h = hmac_sha256::Hash::hash(password.as_bytes());
 
@@ -123,10 +120,9 @@ pub fn decrypt(path: Option<&str>, password: &str) -> Result<String, String> {
         Err(err) => {
             let err_str = err.to_string();
             if err_str == "aead::Error" {
-                return Err(String::from("Incorrect password - aborting."));
-            } else {
-                return Err(err_str);
+                return Err("Incorrect password - aborting.".to_string());
             }
+            return Err(err_str);
         }
     };
     match std::str::from_utf8(&plaintext) {
@@ -216,12 +212,12 @@ mod tests {
         let t_path = &cleanup.path();
         create(Some(t_path)).expect("creating");
         let c = "content\ndelimiter\nsecret-stuff\n";
-        encrypt(Some(t_path), "master_pw", c.to_string()).expect("encrypting");
+        encrypt(Some(t_path), "master_pw", c).expect("encrypting");
 
         let mut o = open(Some(t_path)).expect("opening");
         let data = extract_data(&mut o).expect("extracting");
 
-        assert!(data.buf.len() > 0);
+        assert!(!data.buf.is_empty());
         assert_eq!(data.nonce.len(), 12);
     }
 
@@ -236,7 +232,7 @@ mod tests {
 
         let content = "content\ndelimiter\nsecret-stuff\n";
         let pw = "masterPassword";
-        encrypt(Some(t_path), pw, content.to_string()).expect("encrypting");
+        encrypt(Some(t_path), pw, content).expect("encrypting");
 
         let decrypted_content = decrypt(Some(t_path), pw).expect("decrypting");
 

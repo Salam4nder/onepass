@@ -54,11 +54,7 @@ pub fn update(input: UpdateInput) -> String {
         Key::Password => target_idx += 2,
     }
 
-    let mut lines: Vec<String> = input
-        .content
-        .lines()
-        .map(std::string::ToString::to_string)
-        .collect();
+    let mut lines: Vec<String> = input.content.lines().map(ToString::to_string).collect();
 
     for (i, _) in lines.iter().enumerate() {
         if lines[i] == text::RESERVED_RESOURCE && lines[i + 1] == input.name {
@@ -163,7 +159,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic(expected = "getting")]
     fn test_get_panics_on_unfinished_resource() {
         let content = format!("resource\n{}\n{}\n", "name", "password");
         get("twitter", &content).expect("getting");

@@ -49,7 +49,7 @@ pub fn new(custom_path: Option<&str>, stdin: &mut Stdin) -> Result<(), String> {
 
     let resource = input::resource(stdin)?;
     let password = input::master_password()?;
-    new_resource(custom_path, &password, resource)?;
+    new_resource(custom_path, &password, &resource)?;
 
     DONE.store(true, Ordering::Relaxed);
     Ok(())
@@ -58,7 +58,7 @@ pub fn new(custom_path: Option<&str>, stdin: &mut Stdin) -> Result<(), String> {
 fn new_resource(
     custom_path: Option<&str>,
     password: &str,
-    resource: resource::Instance,
+    resource: &resource::Instance,
 ) -> Result<(), String> {
     let path = file::path(custom_path);
     let metadata = match std::fs::metadata(path) {
@@ -69,7 +69,7 @@ fn new_resource(
     let mut content = String::new();
     if metadata.size() > 0 {
         content = file::decrypt(custom_path, password)?;
-        let mut lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
+        let mut lines: Vec<String> = content.lines().map(ToString::to_string).collect();
         for line in &lines {
             if line.trim() == resource.name.trim() {
                 return Err("Resource already exists".to_string());
@@ -81,11 +81,11 @@ fn new_resource(
         content.push_str(resource.to_string().as_str());
     }
 
-    file::encrypt(custom_path, password, content)?;
+    file::encrypt(custom_path, password, &content)?;
     Ok(())
 }
 
-pub fn get(custom_path: Option<&str>, args: Vec<String>) -> Result<Clipboard, String> {
+pub fn get(custom_path: Option<&str>, args: &[String]) -> Result<Clipboard, String> {
     if args.len() < 3 {
         return Err(text::MSG_COMMAND_GET.to_string());
     }
@@ -106,12 +106,12 @@ pub fn get(custom_path: Option<&str>, args: Vec<String>) -> Result<Clipboard, St
         Ok(v) => v,
         Err(err) => return Err(err.to_string()),
     };
-    if ctx.set_text(got.password.to_owned()).is_err() {
+    if ctx.set_text(got.password.clone()).is_err() {
         println!("Password: {}", got.password);
         println!("Don't forget to clear your terminal");
     } else {
         println!("Password copied to clipboard");
-    };
+    }
 
     DONE.store(true, Ordering::Relaxed);
     Ok(ctx)
@@ -139,7 +139,7 @@ pub fn list(custom_path: Option<&str>) -> Result<(), String> {
         return Err(text::MSG_NO_RESOURCES.to_string());
     }
     for v in result {
-        println!("{}", v);
+        println!("{v}");
     }
     DONE.store(true, Ordering::Relaxed);
 
@@ -163,7 +163,7 @@ fn list_resources(custom_path: Option<&str>, password: &str) -> Result<Vec<Strin
 pub fn purge() -> Result<(), String> {
     if let Err(err) = file::purge(None) {
         return Err(err.to_string());
-    };
+    }
     DONE.store(true, Ordering::Relaxed);
     Ok(())
 }
@@ -173,11 +173,7 @@ pub fn suggest() -> String {
     password::suggest(16)
 }
 
-pub fn update(
-    custom_path: Option<&str>,
-    args: Vec<String>,
-    stdin: &mut Stdin,
-) -> Result<(), String> {
+pub fn update(custom_path: Option<&str>, args: &[String], stdin: &mut Stdin) -> Result<(), String> {
     if !file::exists(custom_path) {
         return Err(text::MSG_NO_RESOURCES.to_string());
     }
@@ -217,12 +213,12 @@ fn update_resource(
         content,
     });
 
-    file::encrypt(custom_path, password, updated)?;
+    file::encrypt(custom_path, password, &updated)?;
 
     Ok(())
 }
 
-pub fn del(custom_path: Option<&str>, args: Vec<String>) -> Result<(), String> {
+pub fn del(custom_path: Option<&str>, args: &[String]) -> Result<(), String> {
     if args.len() < 3 {
         return Err(text::MSG_COMMAND_DEL.to_string());
     }
@@ -246,14 +242,14 @@ pub fn del(custom_path: Option<&str>, args: Vec<String>) -> Result<(), String> {
 fn delete_resource(custom_path: Option<&str>, password: &str, name: &str) -> Result<(), String> {
     let content = file::decrypt(custom_path, password)?;
     let deleted = resource::delete(name, &content)?;
-    file::encrypt(custom_path, password, deleted)?;
+    file::encrypt(custom_path, password, &deleted)?;
     Ok(())
 }
 
-pub fn help(args: Vec<String>) -> String {
+pub fn help(args: &[String]) -> String {
     if args.len() != 3 {
         return text::MSG_HELP.to_string();
-    };
+    }
 
     if let Some(command) = Kind::from_string(&args[2]) {
         match command {
@@ -300,25 +296,22 @@ mod tests {
             if let Err(err) = new_resource(
                 Some(path),
                 &password,
-                resource::Instance {
-                    name: String::from(format!("name{}", i)),
-                    user: String::from(format!("user{}", i)),
-                    password: String::from(format!("password{}", i)),
+                &resource::Instance {
+                    name: format!("name{i}"),
+                    user: format!("user{i}"),
+                    password: format!("password{i}"),
                 },
             ) {
                 panic!("seeding: {}", err)
             }
         }
 
-        password.to_string()
+        password.clone()
     }
 
     fn count_lines(path: &str, password: &str) -> Result<usize, String> {
-        let mut count: usize = 0;
-        let content = file::decrypt(Some(path), &password)?;
-        for _ in content.lines().into_iter() {
-            count += 1;
-        }
+        let content = file::decrypt(Some(path), password)?;
+        let count = content.lines().count();
         Ok(count)
     }
 
@@ -336,7 +329,7 @@ mod tests {
         let resource_password = "password3";
         let master_password = seed(t_path, 5);
         let got =
-            get_resource(Some(&t_path), &master_password, resource_name).expect("getting resource");
+            get_resource(Some(t_path), &master_password, resource_name).expect("getting resource");
 
         assert_eq!(resource_name, got.name);
         assert_eq!(resource_user, got.user);

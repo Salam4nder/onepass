@@ -59,12 +59,12 @@ fn main() {
                 println!("{}", &err);
             }
         }
-        Kind::Get => match command::get(path.as_deref(), args) {
+        Kind::Get => match command::get(path.as_deref(), &args) {
             Ok(_) => input::drop_clipboard_ctx(&mut stdin),
             Err(e) => println!("{}", &e),
         },
         Kind::Del => {
-            if let Err(err) = command::del(path.as_deref(), args) {
+            if let Err(err) = command::del(path.as_deref(), args.as_slice()) {
                 println!("{}", &err);
             }
         }
@@ -82,12 +82,12 @@ fn main() {
             }
         }
         Kind::Update => {
-            if let Err(err) = command::update(path.as_deref(), args, &mut stdin) {
+            if let Err(err) = command::update(path.as_deref(), &args, &mut stdin) {
                 println!("{}", &err);
             }
         }
         Kind::Help => {
-            println!("{}", command::help(args));
+            println!("{}", command::help(&args));
         }
     }
 }
