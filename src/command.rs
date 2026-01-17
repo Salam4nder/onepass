@@ -28,9 +28,9 @@ impl Kind {
         match s {
             "new" => Some(Kind::New),
             "get" => Some(Kind::Get),
-            "del" => Some(Kind::Del),
+            "rm" => Some(Kind::Del),
             "help" => Some(Kind::Help),
-            "list" => Some(Kind::List),
+            "ls" => Some(Kind::List),
             "purge" => Some(Kind::Purge),
             "update" => Some(Kind::Update),
             "suggest" => Some(Kind::Suggest),
@@ -220,7 +220,7 @@ fn update_resource(
 
 pub fn del(custom_path: Option<&str>, args: &[String]) -> Result<(), String> {
     if args.len() < 3 {
-        return Err(text::MSG_COMMAND_DEL.to_string());
+        return Err(text::MSG_COMMAND_RM.to_string());
     }
 
     if !file::exists(custom_path) {
@@ -254,7 +254,7 @@ pub fn help(args: &[String]) -> String {
     if let Some(command) = Kind::from_string(&args[2]) {
         match command {
             Kind::Get => text::MSG_COMMAND_GET.to_string(),
-            Kind::Del => text::MSG_COMMAND_DEL.to_string(),
+            Kind::Del => text::MSG_COMMAND_RM.to_string(),
             Kind::Update => text::MSG_COMMAND_UPDATE.to_string(),
             _ => text::MSG_HELP.to_string(),
         }

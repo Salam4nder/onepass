@@ -56,16 +56,16 @@ fn main() {
     match cmd {
         Kind::New => {
             if let Err(err) = command::new(path.as_deref(), &mut stdin) {
-                println!("{}", &err);
+                println!("{err}");
             }
         }
         Kind::Get => match command::get(path.as_deref(), &args) {
             Ok(_) => input::drop_clipboard_ctx(&mut stdin),
-            Err(e) => println!("{}", &e),
+            Err(e) => println!("{e}"),
         },
         Kind::Del => {
             if let Err(err) = command::del(path.as_deref(), args.as_slice()) {
-                println!("{}", &err);
+                println!("{err}");
             }
         }
         Kind::Suggest => {
@@ -73,17 +73,17 @@ fn main() {
         }
         Kind::List => {
             if let Err(err) = command::list(path.as_deref()) {
-                println!("{}", &err);
+                println!("{err}");
             }
         }
         Kind::Purge => {
             if let Err(err) = command::purge() {
-                println!("{}", &err);
+                println!("{err}");
             }
         }
         Kind::Update => {
             if let Err(err) = command::update(path.as_deref(), &args, &mut stdin) {
-                println!("{}", &err);
+                println!("{err}");
             }
         }
         Kind::Help => {
