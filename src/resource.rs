@@ -109,9 +109,9 @@ mod tests {
         let mut content = String::new();
         for i in 0..amount {
             content.push_str("resource\n");
-            content.push_str(format!("name{}\n", i).as_str());
-            content.push_str(format!("user{}\n", i).as_str());
-            content.push_str(format!("password{}\n", i).as_str());
+            content.push_str(format!("name{i}\n").as_str());
+            content.push_str(format!("user{i}\n").as_str());
+            content.push_str(format!("password{i}\n").as_str());
         }
         content
     }
@@ -121,7 +121,7 @@ mod tests {
         let name = "twitter";
         let user = "user@email.com";
         let password = "password";
-        let content = format!("resource\n{}\n{}\n{}\n", name, user, password);
+        let content = format!("resource\n{name}\n{user}\n{password}\n");
 
         let resource = get("twitter", &content).expect("getting");
         assert_eq!(resource.name, name);
@@ -141,15 +141,15 @@ mod tests {
         for i in 1..100 {
             if i == 50 {
                 long_content.push_str("resource\n");
-                long_content.push_str(format!("{}\n", target_name).as_str());
-                long_content.push_str(format!("{}\n", target_user).as_str());
-                long_content.push_str(format!("{}\n", target_password).as_str());
+                long_content.push_str(format!("{target_name}\n").as_str());
+                long_content.push_str(format!("{target_user}\n").as_str());
+                long_content.push_str(format!("{target_password}\n").as_str());
                 continue;
             }
             long_content.push_str("resource\n");
-            long_content.push_str(format!("name{}\n", i).as_str());
-            long_content.push_str(format!("user{}\n", i).as_str());
-            long_content.push_str(format!("password{}\n", i).as_str());
+            long_content.push_str(format!("name{i}\n").as_str());
+            long_content.push_str(format!("user{i}\n").as_str());
+            long_content.push_str(format!("password{i}\n").as_str());
         }
         let long_result = get("website", &long_content).expect("getting long result");
         assert_eq!(long_result.name, target_name);

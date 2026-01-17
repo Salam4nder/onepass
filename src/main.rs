@@ -5,19 +5,17 @@ mod password;
 mod resource;
 mod text;
 
-use command::Kind;
 use std::env;
 use std::sync::atomic::Ordering;
 
-// extern crate arboard;
-extern crate rpassword;
+use command::Kind;
 
 fn main() {
     ctrlc::set_handler(move || {
         println!("onepass: cleaning up...");
         if input::MODE.load(Ordering::Relaxed) {
             std::process::exit(1);
-        };
+        }
         let max_retries = 5;
         for _ in 0..max_retries {
             if command::DONE.load(Ordering::Relaxed) {
@@ -25,7 +23,7 @@ fn main() {
             }
             std::thread::sleep(std::time::Duration::from_secs(1));
         }
-        println!("onepass: WARNING: bad state, run `onepass purge`")
+        println!("onepass: WARNING: bad state, run `onepass purge`");
     })
     .expect("setting ctrl-c handler");
 
@@ -46,34 +44,29 @@ fn main() {
                     println!("{}", text::MSG_HELP);
                     std::process::exit(0);
                 }
-                Some(v) => path = Some(v.to_string()),
+                Some(v) => path = Some(v.clone()),
             }
         }
     }
 
-    let cmd = match command::Kind::from_string(command_string.as_str()) {
-        Some(v) => v,
-        None => {
-            println!("{}", text::MSG_HELP);
-            std::process::exit(1);
-        }
+    let Some(cmd) = command::Kind::from_string(command_string.as_str()) else {
+        println!("{}", text::MSG_HELP);
+        std::process::exit(1);
     };
     match cmd {
         Kind::New => {
             if let Err(err) = command::new(path.as_deref(), &mut stdin) {
                 println!("{}", &err);
-            };
+            }
         }
-        Kind::Get => {
-            match command::get(path.as_deref(), args) {
-                Ok(_) => input::drop_clipboard_ctx(&mut stdin),
-                Err(e) => println!("{}", &e),
-            };
-        }
+        Kind::Get => match command::get(path.as_deref(), args) {
+            Ok(_) => input::drop_clipboard_ctx(&mut stdin),
+            Err(e) => println!("{}", &e),
+        },
         Kind::Del => {
             if let Err(err) = command::del(path.as_deref(), args) {
                 println!("{}", &err);
-            };
+            }
         }
         Kind::Suggest => {
             println!("{}", command::suggest());
@@ -81,17 +74,17 @@ fn main() {
         Kind::List => {
             if let Err(err) = command::list(path.as_deref()) {
                 println!("{}", &err);
-            };
+            }
         }
         Kind::Purge => {
             if let Err(err) = command::purge() {
                 println!("{}", &err);
-            };
+            }
         }
         Kind::Update => {
             if let Err(err) = command::update(path.as_deref(), args, &mut stdin) {
                 println!("{}", &err);
-            };
+            }
         }
         Kind::Help => {
             println!("{}", command::help(args));
