@@ -5,8 +5,7 @@ mod password;
 mod resource;
 mod text;
 
-use std::env;
-use std::sync::atomic::Ordering;
+use std::{env, process, sync::atomic::Ordering};
 
 use command::Kind;
 
@@ -14,12 +13,12 @@ fn main() {
     ctrlc::set_handler(move || {
         println!("onepass: cleaning up...");
         if input::MODE.load(Ordering::Relaxed) {
-            std::process::exit(1);
+            process::exit(1);
         }
         let max_retries = 5;
         for _ in 0..max_retries {
             if command::DONE.load(Ordering::Relaxed) {
-                std::process::exit(1);
+                process::exit(1);
             }
             std::thread::sleep(std::time::Duration::from_secs(1));
         }

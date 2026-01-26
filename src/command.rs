@@ -78,7 +78,7 @@ fn new_resource(
         lines.push(resource.to_string());
         content = lines.join("\n");
     } else {
-        content.push_str(resource.to_string().as_str());
+        content.push_str(&resource.to_string());
     }
 
     file::encrypt(custom_path, password, &content)?;
