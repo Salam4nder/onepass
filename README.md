@@ -3,7 +3,7 @@ Light, ergonomic and portable terminal password manager.
 Get to your passwords super quick and hassle free!
 
 ## Lightweight & Secure.
-Operates on a single encrypted file.
+Operates on a single encrypted file with a master password.
 
 ## Portable.
 Want to have your passwords on a portable disk? Simply copy the `onepass` file to it and specify the path!
@@ -26,3 +26,6 @@ OPTIONS:
 
 ## Development
 Enter the development environment with `nix develop`.
+
+## Linting
+`make lint`.
