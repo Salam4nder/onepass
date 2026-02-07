@@ -12,6 +12,7 @@ use arboard::Clipboard;
 
 pub static DONE: AtomicBool = AtomicBool::new(false);
 
+#[derive(Debug)]
 pub enum Kind {
     New,
     Get,
@@ -41,8 +42,10 @@ impl Kind {
 
 /// Create a new resource and append it to the file.
 pub fn new(custom_path: Option<&str>, stdin: &mut Stdin) -> Result<(), String> {
-    if !file::exists(custom_path) {
-        if let Err(err) = file::create(custom_path) {
+    if !file::exists(custom_path)
+        && let Err(err) = file::create(custom_path)
+    {
+        {
             return Err(err.to_string());
         }
     }
@@ -85,27 +88,19 @@ fn new_resource(
     Ok(())
 }
 
-pub fn get(custom_path: Option<&str>, args: &[String]) -> Result<Clipboard, String> {
-    if args.len() < 3 {
-        return Err(text::MSG_COMMAND_GET.to_string());
-    }
-
+pub fn get(custom_path: Option<&str>, resource: &str) -> Result<Clipboard, String> {
     if !file::exists(custom_path) {
         return Err(text::MSG_NO_RESOURCES.to_string());
     }
 
     let password = input::master_password()?;
-    let resource_name = &args[2];
-    if input::is_reserved(resource_name) {
+    if input::is_reserved(resource) {
         return Err("use of reserved keyword".to_string());
     }
 
-    let got = get_resource(custom_path, &password, resource_name)?;
+    let got = get_resource(custom_path, &password, resource)?;
     println!("Username: {}", got.user);
-    let mut ctx = match Clipboard::new() {
-        Ok(v) => v,
-        Err(err) => return Err(err.to_string()),
-    };
+    let mut ctx = Clipboard::new().map_err(|e| e.to_string())?;
     if ctx.set_text(got.password.clone()).is_err() {
         println!("Password: {}", got.password);
         println!("Don't forget to clear your terminal");
@@ -161,9 +156,7 @@ fn list_resources(custom_path: Option<&str>, password: &str) -> Result<Vec<Strin
 }
 
 pub fn purge() -> Result<(), String> {
-    if let Err(err) = file::purge(None) {
-        return Err(err.to_string());
-    }
+    file::purge(None).map_err(|e| e.to_string())?;
     DONE.store(true, Ordering::Relaxed);
     Ok(())
 }
@@ -173,23 +166,18 @@ pub fn suggest() -> String {
     password::suggest(16)
 }
 
-pub fn update(custom_path: Option<&str>, args: &[String], stdin: &mut Stdin) -> Result<(), String> {
+pub fn update(custom_path: Option<&str>, resource: &str, stdin: &mut Stdin) -> Result<(), String> {
     if !file::exists(custom_path) {
         return Err(text::MSG_NO_RESOURCES.to_string());
     }
 
-    if args.len() < 3 {
-        return Err(text::MSG_COMMAND_UPDATE.to_string());
-    }
-
-    let name = args[2].clone();
-    if input::is_reserved(&name) {
+    if input::is_reserved(resource) {
         return Err("use of reserved keyword".to_string());
     }
     let password = input::master_password()?;
     let (key, val) = input::update_resource(stdin)?;
 
-    update_resource(custom_path, &password, name, key, val)?;
+    update_resource(custom_path, &password, resource.to_string(), key, val)?;
 
     DONE.store(true, Ordering::Relaxed);
     Ok(())
@@ -218,22 +206,17 @@ fn update_resource(
     Ok(())
 }
 
-pub fn del(custom_path: Option<&str>, args: &[String]) -> Result<(), String> {
-    if args.len() < 3 {
-        return Err(text::MSG_COMMAND_RM.to_string());
-    }
-
+pub fn del(custom_path: Option<&str>, resource: &str) -> Result<(), String> {
     if !file::exists(custom_path) {
         return Err(text::MSG_NO_RESOURCES.to_string());
     }
 
     let password = input::master_password()?;
-    let name = &args[2];
-    if input::is_reserved(name) {
+    if input::is_reserved(resource) {
         return Err("Keyword is reserved".to_string());
     }
 
-    delete_resource(custom_path, &password, name)?;
+    delete_resource(custom_path, &password, resource)?;
 
     DONE.store(true, Ordering::Relaxed);
     Ok(())
@@ -246,12 +229,8 @@ fn delete_resource(custom_path: Option<&str>, password: &str, name: &str) -> Res
     Ok(())
 }
 
-pub fn help(args: &[String]) -> String {
-    if args.len() != 3 {
-        return text::MSG_HELP.to_string();
-    }
-
-    if let Some(command) = Kind::from_string(&args[2]) {
+pub fn help(cmd: &str) -> String {
+    if let Some(command) = Kind::from_string(cmd) {
         match command {
             Kind::Get => text::MSG_COMMAND_GET.to_string(),
             Kind::Del => text::MSG_COMMAND_RM.to_string(),
