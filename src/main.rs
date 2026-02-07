@@ -14,22 +14,7 @@ use std::{
 use command::Kind;
 
 fn main() {
-    ctrlc::set_handler(move || {
-        println!("onepass: cleaning up...");
-        if input::MODE.load(Ordering::Relaxed) {
-            process::exit(1);
-        }
-        let max_retries = 5;
-        for _ in 0..max_retries {
-            if command::DONE.load(Ordering::Relaxed) {
-                process::exit(1);
-            }
-            std::thread::sleep(std::time::Duration::from_secs(1));
-        }
-        println!("onepass: WARNING: bad state, run `onepass purge`");
-    })
-    .expect("setting ctrl-c handler");
-
+    handle_interrupt();
     let mut stdin = std::io::stdin();
 
     let args: Vec<String> = env::args().collect();
@@ -110,4 +95,36 @@ fn main() {
             println!("{}", command::help(argument_string));
         }
     }
+}
+
+pub fn handle_interrupt() {
+    unsafe {
+        libc::signal(libc::SIGTERM, handle_sigterm as *const () as usize);
+        libc::signal(libc::SIGINT, handle_sigint as *const () as usize);
+    }
+}
+
+fn handle_sigterm(_signal: i32) {
+    handle_cleanup();
+}
+
+fn handle_sigint(_signal: i32) {
+    handle_cleanup();
+}
+
+// TODO: This is prob not needed, as decryptet content is stored in memory.
+// Might be a corner case if we're encrypting and haven't written to the file yet.
+fn handle_cleanup() {
+    println!("onepass: cleaning up...");
+    if input::MODE.load(Ordering::Relaxed) {
+        process::exit(1);
+    }
+    let max_retries = 5;
+    for _ in 0..max_retries {
+        if command::DONE.load(Ordering::Relaxed) {
+            process::exit(1);
+        }
+        std::thread::sleep(std::time::Duration::from_secs(1));
+    }
+    println!("onepass: WARNING: bad state, run `onepass purge`");
 }
