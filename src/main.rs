@@ -5,7 +5,11 @@ mod password;
 mod resource;
 mod text;
 
-use std::{env, process, sync::atomic::Ordering};
+use std::{
+    env::{self},
+    process,
+    sync::atomic::Ordering,
+};
 
 use command::Kind;
 
@@ -34,19 +38,18 @@ fn main() {
         std::process::exit(0);
     }
     let command_string = &args[1];
-
-    let mut path: Option<String> = None;
-    for i in 2..args.len() {
-        if args[i] == "-l" || args[i] == "--location" {
-            match args.get(i + 1) {
-                None => {
-                    println!("{}", text::MSG_HELP);
-                    std::process::exit(0);
-                }
-                Some(v) => path = Some(v.clone()),
-            }
+    let custom_path = if let Some(v) = args.get(3)
+        && (v == "-l" || v == "--location")
+    {
+        if let Some(vv) = args.get(4) {
+            Some(vv.as_str())
+        } else {
+            println!("{}", text::MSG_HELP);
+            std::process::exit(0);
         }
-    }
+    } else {
+        None
+    };
 
     let Some(cmd) = command::Kind::from_string(command_string.as_str()) else {
         println!("{}", text::MSG_HELP);
@@ -54,16 +57,26 @@ fn main() {
     };
     match cmd {
         Kind::New => {
-            if let Err(err) = command::new(path.as_deref(), &mut stdin) {
+            if let Err(err) = command::new(custom_path, &mut stdin) {
                 println!("{err}");
             }
         }
-        Kind::Get => match command::get(path.as_deref(), &args) {
-            Ok(_) => input::drop_clipboard_ctx(&mut stdin),
-            Err(e) => println!("{e}"),
-        },
+        Kind::Get => {
+            let Some(argument_string) = args.get(2) else {
+                println!("{}", text::MSG_HELP);
+                std::process::exit(0);
+            };
+            match command::get(custom_path, argument_string) {
+                Ok(_) => input::drop_clipboard_ctx(&mut stdin),
+                Err(e) => println!("{e}"),
+            }
+        }
         Kind::Del => {
-            if let Err(err) = command::del(path.as_deref(), args.as_slice()) {
+            let Some(argument_string) = args.get(2) else {
+                println!("{}", text::MSG_HELP);
+                std::process::exit(0);
+            };
+            if let Err(err) = command::del(custom_path, argument_string) {
                 println!("{err}");
             }
         }
@@ -71,7 +84,7 @@ fn main() {
             println!("{}", command::suggest());
         }
         Kind::List => {
-            if let Err(err) = command::list(path.as_deref()) {
+            if let Err(err) = command::list(custom_path) {
                 println!("{err}");
             }
         }
@@ -81,12 +94,20 @@ fn main() {
             }
         }
         Kind::Update => {
-            if let Err(err) = command::update(path.as_deref(), &args, &mut stdin) {
+            let Some(argument_string) = args.get(2) else {
+                println!("{}", text::MSG_HELP);
+                std::process::exit(0);
+            };
+            if let Err(err) = command::update(custom_path, argument_string, &mut stdin) {
                 println!("{err}");
             }
         }
         Kind::Help => {
-            println!("{}", command::help(&args));
+            let Some(argument_string) = args.get(2) else {
+                println!("{}", text::MSG_HELP);
+                std::process::exit(0);
+            };
+            println!("{}", command::help(argument_string));
         }
     }
 }
