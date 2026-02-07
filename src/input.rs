@@ -9,10 +9,7 @@ pub static MODE: AtomicBool = AtomicBool::new(false);
 
 pub fn master_password() -> Result<String, String> {
     MODE.store(true, Ordering::Relaxed);
-    let input = match rpassword::prompt_password("master password: ") {
-        Ok(v) => v,
-        Err(err) => return Err(err.to_string()),
-    };
+    let input = rpassword::prompt_password("master password: ").map_err(|e| e.to_string())?;
     MODE.store(false, Ordering::Relaxed);
 
     if input.trim().is_empty() {
@@ -29,9 +26,7 @@ pub fn resource(i: &mut Stdin) -> Result<resource::Instance, String> {
     let fn_ask_for = |m: &str| -> Result<String, String> {
         println!("{m}: ");
         let mut input = String::new();
-        if let Err(err) = i.read_line(&mut input) {
-            return Err(err.to_string());
-        }
+        i.read_line(&mut input).map_err(|e| e.to_string())?;
         if is_reserved(&input) {
             return Err("use of reserved keyword".to_string());
         }
@@ -43,10 +38,7 @@ pub fn resource(i: &mut Stdin) -> Result<resource::Instance, String> {
     let password: String = if yes_no == "y" {
         password::suggest(14)
     } else {
-        match rpassword::prompt_password("choose a password: ") {
-            Ok(v) => v,
-            Err(err) => return Err(err.to_string()),
-        }
+        rpassword::prompt_password("choose a password: ").map_err(|e| e.to_string())?
     };
     MODE.store(false, Ordering::Relaxed);
     Ok(resource::Instance {
@@ -62,9 +54,7 @@ pub fn update_resource(i: &mut Stdin) -> Result<(resource::Key, String), String>
     MODE.store(true, Ordering::Relaxed);
     println!("update name (n), user (u) or password (p)?");
     let mut target = String::new();
-    if let Err(err) = i.read_line(&mut target) {
-        return Err(err.to_string());
-    }
+    i.read_line(&mut target).map_err(|e| e.to_string())?;
     let key = match target.as_str() {
         "n\n" => resource::Key::Name,
         "u\n" => resource::Key::User,
@@ -76,21 +66,14 @@ pub fn update_resource(i: &mut Stdin) -> Result<(resource::Key, String), String>
     match key {
         resource::Key::Name => {
             println!("new resource name: ");
-            if let Err(err) = i.read_line(&mut val) {
-                return Err(err.to_string());
-            }
+            i.read_line(&mut val).map_err(|e| e.to_string())?;
         }
         resource::Key::User => {
             println!("new resource user: ");
-            if let Err(err) = i.read_line(&mut val) {
-                return Err(err.to_string());
-            }
+            i.read_line(&mut val).map_err(|e| e.to_string())?;
         }
         resource::Key::Password => {
-            val = match rpassword::prompt_password("new password: ") {
-                Ok(v) => v,
-                Err(err) => return Err(err.to_string()),
-            };
+            val = rpassword::prompt_password("new password: ").map_err(|e| e.to_string())?;
         }
     }
     val = val.trim().to_string();
