@@ -1,6 +1,7 @@
 # onepass
 
 (Mostly) up-to-date from https://codeberg.org/dogfather/onepass
+
 Light, ergonomic and portable terminal password manager.
 Get to your passwords super quick and hassle free!
 
