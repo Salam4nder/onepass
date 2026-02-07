@@ -8,8 +8,8 @@ use std::str;
 
 use chacha20poly1305::AeadCore;
 use chacha20poly1305::{
-    aead::{Aead, KeyInit},
     ChaCha20Poly1305, Nonce,
+    aead::{Aead, KeyInit},
 };
 use rand::rngs::OsRng;
 
@@ -23,7 +23,6 @@ pub fn purge(custom: Option<&str>) -> io::Result<()> {
 /// Create the needed file for the application.
 /// The path can be adjusted with parameters.
 pub fn create(custom_path: Option<&str>) -> io::Result<std::fs::File> {
-    let ver = "0.3";
     let path = path(custom_path);
 
     if let Some(parent_dir) = path.parent() {
@@ -40,7 +39,7 @@ pub fn create(custom_path: Option<&str>) -> io::Result<std::fs::File> {
             println!("Initialized file at {p}");
         }
         None => {
-            println!("Initialized file at ~/{DEFAULT_DIR_NAME}/{DEFAULT_FILE_NAME} {ver}");
+            println!("Initialized file at ~/{DEFAULT_DIR_NAME}/{DEFAULT_FILE_NAME}");
         }
     }
 
@@ -69,30 +68,19 @@ pub fn encrypt(
     password: &str,
     content: &str,
 ) -> Result<Vec<u8>, String> {
+    // TODO: Salt this.
     let h = hmac_sha256::Hash::hash(password.as_bytes());
 
     let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
-    let cipher = match ChaCha20Poly1305::new_from_slice(&h) {
-        Ok(c) => c,
-        Err(err) => {
-            return Err(err.to_string());
-        }
-    };
-    let ciphertext = match cipher.encrypt(&nonce, content.as_ref()) {
-        Ok(v) => v,
-        Err(err) => return Err(err.to_string()),
-    };
+    let cipher = ChaCha20Poly1305::new_from_slice(&h).map_err(|e| e.to_string())?;
+    let ciphertext = cipher
+        .encrypt(&nonce, content.as_ref())
+        .map_err(|e| e.to_string())?;
 
-    let mut f = match open_truncate(custom_path) {
-        Ok(v) => v,
-        Err(err) => return Err(err.to_string()),
-    };
-    if let Err(err) = f.write_all(nonce.as_slice()) {
-        return Err(err.to_string());
-    }
-    if let Err(err) = f.write_all(ciphertext.as_slice()) {
-        return Err(err.to_string());
-    }
+    let mut f = open_truncate(custom_path).map_err(|e| e.to_string())?;
+    f.write_all(nonce.as_slice()).map_err(|e| e.to_string())?;
+    f.write_all(ciphertext.as_slice())
+        .map_err(|e| e.to_string())?;
 
     Ok(ciphertext)
 }
@@ -100,21 +88,10 @@ pub fn encrypt(
 pub fn decrypt(path: Option<&str>, password: &str) -> Result<String, String> {
     let h = hmac_sha256::Hash::hash(password.as_bytes());
 
-    let cipher = match ChaCha20Poly1305::new_from_slice(&h) {
-        Ok(c) => c,
-        Err(err) => {
-            return Err(err.to_string());
-        }
-    };
+    let cipher = ChaCha20Poly1305::new_from_slice(&h).map_err(|e| e.to_string())?;
 
-    let mut f = match open(path) {
-        Ok(v) => v,
-        Err(err) => return Err(err.to_string()),
-    };
-    let data = match extract_data(&mut f) {
-        Ok(v) => v,
-        Err(err) => return Err(err.to_string()),
-    };
+    let mut f = open(path).map_err(|e| e.to_string())?;
+    let data = extract_data(&mut f).map_err(|e| e.to_string())?;
     let plaintext = match cipher.decrypt(&data.nonce, data.buf.as_ref()) {
         Ok(v) => v,
         Err(err) => {
@@ -125,14 +102,14 @@ pub fn decrypt(path: Option<&str>, password: &str) -> Result<String, String> {
             return Err(err_str);
         }
     };
-    match std::str::from_utf8(&plaintext) {
-        Ok(v) => Ok(v.to_string()),
-        Err(err) => Err(err.to_string()),
-    }
+
+    std::str::from_utf8(&plaintext)
+        .map(ToString::to_string)
+        .map_err(|e| e.to_string())
 }
 
 pub fn path(custom_path: Option<&str>) -> PathBuf {
-    let home_dir = env::var("HOME").unwrap();
+    let home_dir = env::var("HOME").expect("we're on Linux and $HOME is set");
     let mut path = PathBuf::from(home_dir);
     if let Some(c) = custom_path {
         path.push(c);
